@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = [
+  "shared",
+  "client",
+  "web",
+  "server",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+license = "MIT"
+description = "A rust and nix template repository."
+authors = ["Olive Casazza <olive.casazza@schrodinger.com>"]
+documentation = "https://ocasazza.github.io/nix_rust_template/docs/index.html"
+repository = "https://github.com/ocasazza/nix_rust_template"
+homepage = "https://ocasazza.github.io/nix_rust_template/demo/index.html"
+readme = "readme.md"
+keywords = ["nix", "wasm", "javascript", "typescript"]
+
+[workspace.metadata.crane]
+name = "nix_rust_template"
+version = "0.0.1"

@@ -1,0 +1,30 @@
+# Omnix configuration for nix_rust_template
+# This ensures consistent CI behavior across platforms
+
+[ci]
+# Build all packages and checks
+build = [
+  "packages.default",
+  "checks.myShared",
+  "checks.myWeb",
+  "checks.myServer",
+  "checks.myClient",
+  "checks.myDocs"
+]
+
+# Additional settings for cross-platform compatibility
+[ci.systems]
+# Explicitly specify which systems to support
+# This helps avoid platform-specific issues
+include = [
+  "x86_64-linux",
+  "aarch64-linux",
+  "x86_64-darwin",
+  "aarch64-darwin"
+]
+
+[ci.options]
+# Increase timeout for WASM builds which can be slow
+timeout = 3600
+# Use more verbose output for debugging
+verbose = true

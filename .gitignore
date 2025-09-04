@@ -1,0 +1,10 @@
+# build files
+target/
+pkg/
+dist/
+artifacts/
+result*
+
+# configs
+.direnv
+.env

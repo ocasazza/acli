@@ -1,0 +1,191 @@
+name: 'CI/CD'
+on:
+  pull_request:
+    branches: ['main']
+  push:
+    branches: ['main']
+
+jobs:
+  omnix:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          # - ubuntu-24.04
+          # - ubuntu-22.04
+          # - ubuntu-22.04-arm
+          # - ubuntu-24.04-arm
+          # - macos-latest
+          # - macos-14
+          # - macos-15
+          # - macos-13
+          # - windows-latest
+          # - windows-2025
+          # - windows-2022
+          # - windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - name: Install omnix
+        run: nix --accept-flake-config profile install "github:juspay/omnix"
+      - name: Debug system info
+        run: |
+          echo "System: $(uname -a)"
+          echo "Nix version: $(nix --version)"
+          echo "Om version: $(om --version)"
+          echo "Available systems: $(nix eval --impure --expr 'builtins.currentSystem')"
+      - name: Run omnix CI
+        run: om ci --verbose
+      - run: nix run .#update-repo-info
+      - name: collect artifacts from om build into an "artifacts/" folder
+        run: nix run .#get-build-artifacts
+      - name: Upload all build artifacts (combined)
+        uses: actions/upload-artifact@v4
+        with:
+          name: nix-builds-${{ matrix.os }}
+          path: artifacts/
+          retention-days: 7
+          compression-level: 6
+
+  # Create release PR with version updates and changelog
+  release-pr:
+    needs: omnix
+    if: ${{ needs.omnix.result == 'success' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    concurrency:
+      group: release-plz-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@main
+      - name: Run release-plz
+        uses: release-plz/action@v0.5
+        with:
+          command: release-pr
+          # manifest_path: ./shared/Cargo.toml
+          config: .release-plz.toml
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  # Release unpublished packages
+  release:
+    needs: omnix
+    if: ${{ needs.omnix.result == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release-plz.outputs.releases_created }}
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run release-plz
+        id: release-plz
+        uses: release-plz/action@v0.5
+        with:
+          command: release
+          # manifest_path: ./shared/Cargo.toml
+          config: .release-plz.toml
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+
+  npm:
+    needs: release
+    if: needs.release.outputs.releases_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: nix-builds-ubuntu-latest
+        path: artifacts/
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Prepare npm package from artifacts
+      run: |
+        # Extract web package from artifacts
+        if [ -d "artifacts/nix_rust_template-web" ]; then
+          mkdir -p pkg
+          cp -r artifacts/web/*/pkg pkg/
+        fi
+
+    - name: Publish to npm
+      run: |
+        cd pkg
+        npm publish
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  pages:
+    needs: release
+    if: ${{ needs.release.outputs.releases_created == 'true' }}
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nix-builds-ubuntu-latest
+          path: artifacts/
+      - name: Configure GitHub pages
+        id: pages
+        uses: actions/configure-pages@v5
+      - name: Prepare documentation from artifacts
+        run: |
+          # Extract documentation from crane-template-doc artifact
+          mkdir -p target/doc/rustdoc
+          if [ -d "artifacts/nix_rust_template-doc" ]; then
+            cp -r artifacts/nix_rust_template-doc/*nix_rust_template-doc*/* target/doc/rustdoc
+          fi
+
+      - name: Prepare GitHub Pages content
+        run: |
+          # Create demo directory in docs output
+          mkdir -p target/doc/demo
+
+          # Copy WASM demo files from client-trunk artifact if available
+          if [ -d "artifacts/nix_rust_template-client" ]; then
+            cp -r artifacts/nix_rust_template-client/* target/doc/demo/ 2>/dev/null || true
+          fi
+
+          # Copy the GitHub Pages index template as the main index
+          cp .github/pages_index.html target/doc/index.html
+
+      - name: Upload GitHub Pages content
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/doc
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

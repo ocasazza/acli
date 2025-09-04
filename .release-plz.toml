@@ -1,0 +1,25 @@
+# Release configuration for nix_rust_template
+# Only process the shared library package
+
+[workspace]
+allow_dirty = true # allow updating repositories with uncommitted changes
+
+[[package]]
+name = "nix_rust_template"
+changelog_update = true # enable changelog update
+publish = false
+
+[[package]]
+name = "nix_rust_template-client"
+publish = false
+
+[[package]]
+name = "nix_rust_template-server"
+publish = false
+
+[[package]]
+name = "nix_rust_template-web"
+publish = false
+
+[changelog]
+protect_breaking_commits = true # always include commits with breaking changes in the changelog
