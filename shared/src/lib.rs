@@ -82,10 +82,10 @@ impl ConfluencePageTree {
     ///
     /// In a full implementation this would call the Confluence API.
     pub fn delete_label(&mut self, tag: &str) {
-        self.current_page_labels
-            .retain(|lbl| lbl.as_str() != tag);
-        self.tag_actions
-            .push(PageLabelAction::Delete { tag: tag.to_string() });
+        self.current_page_labels.retain(|lbl| lbl.as_str() != tag);
+        self.tag_actions.push(PageLabelAction::Delete {
+            tag: tag.to_string(),
+        });
     }
 
     /// Stubbed: apply all recorded actions.
@@ -93,7 +93,10 @@ impl ConfluencePageTree {
     /// This is a no-op placeholder that demonstrates the API surface for the
     /// shared library. If `dry_run` is true, the function will not perform
     /// destructive operations (still a no-op here) and will return Ok.
-    pub fn apply_actions(&self, dry_run: bool) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    pub fn apply_actions(
+        &self,
+        dry_run: bool,
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
         if dry_run {
             // In a real implementation, we'd log what we'd do.
             // Keep as a no-op for stubbing purposes.

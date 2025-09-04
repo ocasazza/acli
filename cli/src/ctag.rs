@@ -1,8 +1,6 @@
 use clap::{Args, Subcommand};
-use std::error::Error;
 use nix_rust_template::{ConfluenceClient, ConfluenceConfig, ConfluencePage};
-
-
+use std::error::Error;
 
 /// ctag command: operate on Confluence page labels matched by a CQL expression.
 ///
@@ -57,7 +55,6 @@ pub enum CtagOp {
     },
 }
 
-
 /// Execute the ctag command against the provided Confluence data.
 ///
 /// The implementation is intentionally minimal and uses the stubbed shared
@@ -77,21 +74,22 @@ pub fn run(
     match &cmd.operation {
         CtagOp::List { cql, tags, tree } => {
             if verbose {
-                eprintln!("Listing pages matching: {}", cql);
+                eprintln!("Listing pages matching: {cql}");
                 if let Some(highlight_tags) = tags {
-                    eprintln!("Highlighting pages with tags: {}", highlight_tags);
+                    eprintln!("Highlighting pages with tags: {highlight_tags}");
                 }
                 if *tree {
                     eprintln!("Using tree format");
                 }
             }
             // Parse highlight tags if provided
-            let highlight_list: Option<Vec<&str>> = tags.as_ref()
-                .map(|t| t.split(',').map(|s| s.trim()).collect());
+            let highlight_list: Option<Vec<&str>> = tags
+                .as_ref()
+                .map(|t: &String| t.split(',').map(|s: &str| s.trim()).collect());
             if dry_run {
-                println!("DRY RUN: Would list pages for CQL: {}", cql);
+                println!("DRY RUN: Would list pages for CQL: {cql}");
                 if let Some(tags) = &highlight_list {
-                    println!("DRY RUN: Would highlight pages with tags: {:?}", tags);
+                    println!("DRY RUN: Would highlight pages with tags: {tags:?}");
                 }
                 if *tree {
                     println!("DRY RUN: Would use tree format");
@@ -110,31 +108,52 @@ pub fn run(
         }
         CtagOp::Add { cql, tags } => {
             if verbose {
-                eprintln!("Adding labels '{}' to pages matching: {}", tags, cql);
+                eprintln!("Adding labels '{tags}' to pages matching: {cql}");
             }
             // Parse comma-separated tags
-            let tag_list: Vec<&str> = tags.split(',').map(|s| s.trim()).collect();
+            let tag_list: Vec<&str> = tags.split(',').map(|s: &str| s.trim()).collect();
 
             if dry_run {
-                println!("DRY RUN: Would add labels {:?} to pages matching CQL: {}", tag_list, cql);
+                println!("DRY RUN: Would add labels {tag_list:?} to pages matching CQL: {cql}");
             } else {
-                // Actual implementation would use Confluence API here
-                println!("Adding labels {:?} to pages matching CQL: {}", tag_list, cql);
-                // Example: tree.add_labels(&tag_list);
+                // Create Confluence client and execute query
+                let client = create_confluence_client()?;
+                let pages = client.query_pages_by_cql(cql)?;
+
+                if pages.is_empty() {
+                    println!("No pages found matching CQL: {cql}");
+                    return Ok(());
+                }
+
+                println!("Adding labels {:?} to {} pages...", tag_list, pages.len());
+
+                // Extract page IDs for bulk operation
+                let page_ids: Vec<&str> = pages.iter().map(|p| p.id.as_str()).collect();
+
+                // Use bulk operation for efficiency
+                client.bulk_add_labels(&page_ids, &tag_list)?;
+
+                println!("Successfully added labels to {} pages:", pages.len());
+                for page in &pages {
+                    println!("  - {}", page.title);
+                }
             }
         }
         CtagOp::Update { cql, tags } => {
             if verbose {
-                eprintln!("Updating labels '{}' on pages matching: {}", tags, cql);
+                eprintln!("Updating labels '{tags}' on pages matching: {cql}");
             }
             // Parse colon-separated tag updates
             let updates: Result<Vec<(String, String)>, Box<dyn Error>> = tags
                 .split(',')
-                .map(|s| s.trim())
-                .map(|update| {
+                .map(|s: &str| s.trim())
+                .map(|update: &str| -> Result<(String, String), Box<dyn Error>> {
                     let parts: Vec<&str> = update.split(':').collect();
                     if parts.len() != 2 {
-                        return Err(format!("Invalid update format '{}'. Expected 'old:new'", update).into());
+                        return Err(format!(
+                            "Invalid update format '{update}'. Expected 'old:new'"
+                        )
+                        .into());
                     }
                     Ok((parts[0].trim().to_string(), parts[1].trim().to_string()))
                 })
@@ -143,26 +162,68 @@ pub fn run(
             let updates = updates?;
 
             if dry_run {
-                println!("DRY RUN: Would update labels {:?} on pages matching CQL: {}", updates, cql);
+                println!("DRY RUN: Would update labels {updates:?} on pages matching CQL: {cql}");
             } else {
-                // Actual implementation would use Confluence API here
-                println!("Updating labels {:?} on pages matching CQL: {}", updates, cql);
-                // Example: for (old, new) in updates { tree.update_label(&old, &new); }
+                // Create Confluence client and execute query
+                let client = create_confluence_client()?;
+                let pages = client.query_pages_by_cql(cql)?;
+
+                if pages.is_empty() {
+                    println!("No pages found matching CQL: {cql}");
+                    return Ok(());
+                }
+
+                println!("Updating labels {:?} on {} pages...", updates, pages.len());
+
+                // Extract page IDs for bulk operation
+                let page_ids: Vec<&str> = pages.iter().map(|p| p.id.as_str()).collect();
+
+                // Use bulk operation for efficiency
+                client.bulk_update_labels(&page_ids, &updates)?;
+
+                println!("Successfully updated labels on {} pages:", pages.len());
+                for page in &pages {
+                    println!("  - {}", page.title);
+                }
             }
         }
         CtagOp::Remove { cql, tags } => {
             if verbose {
-                eprintln!("Removing labels '{}' from pages matching: {}", tags, cql);
+                eprintln!("Removing labels '{tags}' from pages matching: {cql}");
             }
             // Parse comma-separated tags
-            let tag_list: Vec<&str> = tags.split(',').map(|s| s.trim()).collect();
+            let tag_list: Vec<&str> = tags.split(',').map(|s: &str| s.trim()).collect();
 
             if dry_run {
-                println!("DRY RUN: Would remove labels {:?} from pages matching CQL: {}", tag_list, cql);
+                println!(
+                    "DRY RUN: Would remove labels {tag_list:?} from pages matching CQL: {cql}"
+                );
             } else {
-                // Actual implementation would use Confluence API here
-                println!("Removing labels {:?} from pages matching CQL: {}", tag_list, cql);
-                // Example: tree.remove_labels(&tag_list);
+                // Create Confluence client and execute query
+                let client = create_confluence_client()?;
+                let pages = client.query_pages_by_cql(cql)?;
+
+                if pages.is_empty() {
+                    println!("No pages found matching CQL: {cql}");
+                    return Ok(());
+                }
+
+                println!(
+                    "Removing labels {:?} from {} pages...",
+                    tag_list,
+                    pages.len()
+                );
+
+                // Extract page IDs for bulk operation
+                let page_ids: Vec<&str> = pages.iter().map(|p| p.id.as_str()).collect();
+
+                // Use bulk operation for efficiency
+                client.bulk_remove_labels(&page_ids, &tag_list)?;
+
+                println!("Successfully removed labels from {} pages:", pages.len());
+                for page in &pages {
+                    println!("  - {}", page.title);
+                }
             }
         }
     }
@@ -173,8 +234,8 @@ pub fn run(
 fn create_confluence_client() -> Result<ConfluenceClient, Box<dyn Error>> {
     dotenv::dotenv().ok(); // Load .env file, ignore if not found
 
-    let base_url = std::env::var("ATLASSIAN_URL")
-        .map_err(|_| "ATLASSIAN_URL environment variable not set")?;
+    let base_url =
+        std::env::var("ATLASSIAN_URL").map_err(|_| "ATLASSIAN_URL environment variable not set")?;
     let username = std::env::var("ATLASSIAN_USERNAME")
         .map_err(|_| "ATLASSIAN_USERNAME environment variable not set")?;
     let api_token = std::env::var("ATLASSIAN_TOKEN")
@@ -190,7 +251,10 @@ fn create_confluence_client() -> Result<ConfluenceClient, Box<dyn Error>> {
 }
 
 /// Display pages in a tree format similar to the unix tree command.
-fn display_pages_tree(pages: &[ConfluencePage], highlight_tags: Option<&[&str]>) -> Result<(), Box<dyn Error>> {
+fn display_pages_tree(
+    pages: &[ConfluencePage],
+    highlight_tags: Option<&[&str]>,
+) -> Result<(), Box<dyn Error>> {
     if pages.is_empty() {
         println!("No pages found.");
         return Ok(());
@@ -227,9 +291,15 @@ fn display_page_with_children(
     };
 
     if !labels.is_empty() {
-        println!("{}{}{} [{}]", prefix, tree_symbol, display_name, labels.join(", "));
+        println!(
+            "{}{}{} [{}]",
+            prefix,
+            tree_symbol,
+            display_name,
+            labels.join(", ")
+        );
     } else {
-        println!("{}{}{}", prefix, tree_symbol, display_name);
+        println!("{prefix}{tree_symbol}{display_name}");
     }
 
     // Fetch child pages for this page
@@ -239,7 +309,13 @@ fn display_page_with_children(
             let new_prefix = format!("{}{}", prefix, if is_last { "    " } else { "│   " });
             for (i, child) in children.iter().enumerate() {
                 let is_last_child = i == children.len() - 1;
-                display_page_with_children(client, child, &new_prefix, is_last_child, highlight_tags)?;
+                display_page_with_children(
+                    client,
+                    child,
+                    &new_prefix,
+                    is_last_child,
+                    highlight_tags,
+                )?;
             }
         }
     }
@@ -247,42 +323,11 @@ fn display_page_with_children(
     Ok(())
 }
 
-/// Recursively display a page and its children in tree format.
-fn display_page_tree_recursive(
-    page: &ConfluencePage,
-    prefix: &str,
-    is_last: bool,
-    child_map: &std::collections::HashMap<String, Vec<&ConfluencePage>>,
+/// Display pages in a flat list format.
+fn display_pages_flat(
+    pages: &[ConfluencePage],
     highlight_tags: Option<&[&str]>,
 ) -> Result<(), Box<dyn Error>> {
-    let tree_symbol = if is_last { "└── " } else { "├── " };
-    let labels = get_page_labels(page);
-
-    let display_name = if should_highlight_page(&labels, highlight_tags) {
-        format!("\x1b[1;33m{}\x1b[0m", page.title) // Yellow highlight
-    } else {
-        page.title.clone()
-    };
-
-    if !labels.is_empty() {
-        println!("{}{}{} [{}]", prefix, tree_symbol, display_name, labels.join(", "));
-    } else {
-        println!("{}{}{}", prefix, tree_symbol, display_name);
-    }
-
-    if let Some(children) = child_map.get(&page.id) {
-        let new_prefix = format!("{}{}", prefix, if is_last { "    " } else { "│   " });
-        for (i, child) in children.iter().enumerate() {
-            let is_last_child = i == children.len() - 1;
-            display_page_tree_recursive(child, &new_prefix, is_last_child, child_map, highlight_tags)?;
-        }
-    }
-
-    Ok(())
-}
-
-/// Display pages in a flat list format.
-fn display_pages_flat(pages: &[ConfluencePage], highlight_tags: Option<&[&str]>) -> Result<(), Box<dyn Error>> {
     if pages.is_empty() {
         println!("No pages found.");
         return Ok(());
@@ -300,7 +345,7 @@ fn display_pages_flat(pages: &[ConfluencePage], highlight_tags: Option<&[&str]>)
         if !labels.is_empty() {
             println!("{} [{}]", display_name, labels.join(", "));
         } else {
-            println!("{}", display_name);
+            println!("{display_name}");
         }
     }
 
@@ -319,7 +364,9 @@ fn get_page_labels(page: &ConfluencePage) -> Vec<String> {
 /// Check if a page should be highlighted based on its labels.
 fn should_highlight_page(page_labels: &[String], highlight_tags: Option<&[&str]>) -> bool {
     if let Some(tags) = highlight_tags {
-        page_labels.iter().any(|label| tags.contains(&label.as_str()))
+        page_labels
+            .iter()
+            .any(|label| tags.contains(&label.as_str()))
     } else {
         false
     }

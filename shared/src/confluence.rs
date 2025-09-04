@@ -8,7 +8,7 @@ use url::Url;
 /// Configuration for connecting to a Confluence instance.
 #[derive(Debug, Clone)]
 pub struct ConfluenceConfig {
-    /// Base URL of the Confluence instance (e.g., "https://company.atlassian.net")
+     /// Base URL of the Confluence instance (e.g., "<https://company.atlassian.net>")
     pub base_url: String,
     /// API token for authentication
     pub api_token: String,
@@ -114,33 +114,27 @@ impl ConfluenceClient {
     /// Create a new Confluence client with the given configuration.
     pub fn new(config: ConfluenceConfig) -> Result<Self> {
         // Validate base URL
-        let _base_url = Url::parse(&config.base_url)
-            .map_err(|_| ConfluenceError::Config {
-                message: format!("Invalid base URL: {}", config.base_url),
-            })?;
-
+        let _base_url = Url::parse(&config.base_url).map_err(|_| ConfluenceError::Config {
+            message: format!("Invalid base URL: {}", config.base_url),
+        })?;
         // Set up HTTP client
         let client = Client::new();
-
         // Set up authentication headers
         let mut headers = HeaderMap::new();
-
         // Use basic auth with username and API token
         let auth_string = format!("{}:{}", config.username, config.api_token);
-        let auth_header = format!("Basic {}", base64::engine::general_purpose::STANDARD.encode(&auth_string));
+        let auth_header = format!(
+            "Basic {}",
+            base64::engine::general_purpose::STANDARD.encode(&auth_string)
+        );
         headers.insert(
             AUTHORIZATION,
-            HeaderValue::from_str(&auth_header)
-                .map_err(|_| ConfluenceError::Authentication {
-                    message: "Failed to create authorization header".to_string(),
-                })?,
+            HeaderValue::from_str(&auth_header).map_err(|_| ConfluenceError::Authentication {
+                message: "Failed to create authorization header".to_string(),
+            })?,
         );
 
-        headers.insert(
-            CONTENT_TYPE,
-            HeaderValue::from_static("application/json"),
-        );
-
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         Ok(ConfluenceClient {
             client,
             config,
@@ -156,18 +150,16 @@ impl ConfluenceClient {
             urlencoding::encode(cql)
         );
 
-        let response = self
-            .client
-            .get(&url)
-            .headers(self.headers.clone())
-            .send()?;
+        let response = self.client.get(&url).headers(self.headers.clone()).send()?;
 
         if !response.status().is_success() {
             let status = response.status().as_u16();
-            let error_text = response.text().unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ConfluenceError::CqlQuery {
                 query: cql.to_string(),
-                message: format!("HTTP {}: {}", status, error_text),
+                message: format!("HTTP {status}: {error_text}"),
             });
         }
 
@@ -182,11 +174,7 @@ impl ConfluenceClient {
             self.config.base_url, page_id
         );
 
-        let response = self
-            .client
-            .get(&url)
-            .headers(self.headers.clone())
-            .send()?;
+        let response = self.client.get(&url).headers(self.headers.clone()).send()?;
 
         if response.status() == 404 {
             return Err(ConfluenceError::PageNotFound {
@@ -196,7 +184,9 @@ impl ConfluenceClient {
 
         if !response.status().is_success() {
             let status = response.status().as_u16();
-            let error_text = response.text().unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ConfluenceError::ApiError {
                 status,
                 message: error_text,
@@ -204,7 +194,11 @@ impl ConfluenceClient {
         }
 
         let labels_response: PageLabels = response.json()?;
-        Ok(labels_response.results.into_iter().map(|l| l.name).collect())
+        Ok(labels_response
+            .results
+            .into_iter()
+            .map(|l| l.name)
+            .collect())
     }
 
     /// Add labels to a page.
@@ -239,9 +233,13 @@ impl ConfluenceClient {
 
         if !response.status().is_success() {
             let status = response.status().as_u16();
-            let error_text = response.text().unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(ConfluenceError::LabelOperation {
-                message: format!("Failed to add labels to page {}: HTTP {}: {}", page_id, status, error_text),
+                message: format!(
+                    "Failed to add labels to page {page_id}: HTTP {status}: {error_text}"
+                ),
             });
         }
 
@@ -253,7 +251,9 @@ impl ConfluenceClient {
         for label in labels {
             let url = format!(
                 "{}/wiki/rest/api/content/{}/label/{}",
-                self.config.base_url, page_id, urlencoding::encode(label)
+                self.config.base_url,
+                page_id,
+                urlencoding::encode(label)
             );
 
             let response = self
@@ -269,9 +269,11 @@ impl ConfluenceClient {
 
             if !response.status().is_success() {
                 let status = response.status().as_u16();
-                let error_text = response.text().unwrap_or_else(|_| "Unknown error".to_string());
+                let error_text = response
+                    .text()
+                    .unwrap_or_else(|_| "Unknown error".to_string());
                 return Err(ConfluenceError::LabelOperation {
-                    message: format!("Failed to remove label '{}' from page {}: HTTP {}: {}", label, page_id, status, error_text),
+                    message: format!("Failed to remove label '{label}' from page {page_id}: HTTP {status}: {error_text}"),
                 });
             }
         }
@@ -307,7 +309,11 @@ impl ConfluenceClient {
     }
 
     /// Bulk update labels on multiple pages.
-    pub fn bulk_update_labels(&self, page_ids: &[&str], updates: &[(String, String)]) -> Result<()> {
+    pub fn bulk_update_labels(
+        &self,
+        page_ids: &[&str],
+        updates: &[(String, String)],
+    ) -> Result<()> {
         for page_id in page_ids {
             for (old_label, new_label) in updates {
                 self.update_page_label(page_id, old_label, new_label)?;
