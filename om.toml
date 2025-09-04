@@ -6,9 +6,6 @@
 build = [
   "packages.default",
   "checks.myShared",
-  "checks.myWeb",
-  "checks.myServer",
-  "checks.myClient",
   "checks.myDocs"
 ]
 
