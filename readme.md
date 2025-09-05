@@ -33,7 +33,7 @@ Create `.env` file:
 ```
 ATLASSIAN_URL="https://your-company.atlassian.net"
 ATLASSIAN_USERNAME="your-email@company.com"
-ATLASSIAN_TOKEN="your-api-token"
+ATLASSIAN_API_TOKEN="your-api-token"
 ```
 
 ## Usage

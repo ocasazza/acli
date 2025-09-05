@@ -48,63 +48,8 @@ jobs:
           retention-days: 7
           compression-level: 6
 
-  # Create release PR with version updates and changelog
-  release-pr:
-    needs: omnix
-    if: ${{ needs.omnix.result == 'success' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      actions: write
-    concurrency:
-      group: release-plz-${{ github.ref }}
-      cancel-in-progress: false
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: DeterminateSystems/nix-installer-action@main
-      - name: Run release-plz
-        uses: release-plz/action@v0.5
-        with:
-          command: release-pr
-          # manifest_path: ./shared/Cargo.toml
-          config: .release-plz.toml
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-  # Release unpublished packages
-  release:
-    needs: omnix
-    if: ${{ needs.omnix.result == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
-    runs-on: ubuntu-latest
-    outputs:
-      releases_created: ${{ steps.release-plz.outputs.releases_created }}
-    permissions:
-      contents: write
-      pull-requests: write
-      actions: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Run release-plz
-        id: release-plz
-        uses: release-plz/action@v0.5
-        with:
-          command: release
-          # manifest_path: ./shared/Cargo.toml
-          config: .release-plz.toml
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
   pages:
-    needs: release
+    needs: omnix
     if: ${{ needs.release.outputs.releases_created == 'true' }}
     permissions:
       pages: write

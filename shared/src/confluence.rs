@@ -8,7 +8,7 @@ use url::Url;
 /// Configuration for connecting to a Confluence instance.
 #[derive(Debug, Clone)]
 pub struct ConfluenceConfig {
-     /// Base URL of the Confluence instance (e.g., "<https://company.atlassian.net>")
+    /// Base URL of the Confluence instance (e.g., "<https://company.atlassian.net>")
     pub base_url: String,
     /// API token for authentication
     pub api_token: String,
@@ -101,6 +101,107 @@ pub struct LabelRequest {
     pub prefix: String,
     /// Label name
     pub name: String,
+}
+
+/// Represents a Confluence space.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfluenceSpace {
+    /// Space ID (can be integer or string from API)
+    #[serde(deserialize_with = "deserialize_id_as_string")]
+    pub id: String,
+    /// Space key
+    pub key: String,
+    /// Space name
+    pub name: String,
+    /// Space type (usually "global")
+    #[serde(rename = "type")]
+    pub space_type: String,
+    /// Space status (usually "current")
+    pub status: String,
+    /// Space description
+    pub description: Option<SpaceDescription>,
+    /// Space links
+    #[serde(rename = "_links")]
+    pub links: Option<SpaceLinks>,
+}
+
+/// Custom deserializer to handle both integer and string IDs
+fn deserialize_id_as_string<'de, D>(deserializer: D) -> std::result::Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self, Visitor};
+    use std::fmt;
+
+    struct IdVisitor;
+
+    impl<'de> Visitor<'de> for IdVisitor {
+        type Value = String;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("string or integer")
+        }
+
+        fn visit_str<E>(self, value: &str) -> std::result::Result<String, E>
+        where
+            E: de::Error,
+        {
+            Ok(value.to_string())
+        }
+
+        fn visit_u64<E>(self, value: u64) -> std::result::Result<String, E>
+        where
+            E: de::Error,
+        {
+            Ok(value.to_string())
+        }
+
+        fn visit_i64<E>(self, value: i64) -> std::result::Result<String, E>
+        where
+            E: de::Error,
+        {
+            Ok(value.to_string())
+        }
+    }
+
+    deserializer.deserialize_any(IdVisitor)
+}
+
+/// Space description content.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpaceDescription {
+    /// Plain text description
+    pub plain: Option<SpacePlainDescription>,
+}
+
+/// Plain text space description.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpacePlainDescription {
+    /// Description value
+    pub value: String,
+}
+
+/// Links associated with a Confluence space.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpaceLinks {
+    /// Web UI link
+    pub webui: Option<String>,
+    /// API self link
+    #[serde(rename = "self")]
+    pub self_link: Option<String>,
+}
+
+/// Response from spaces API.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpacesResponse {
+    /// Array of spaces
+    pub results: Vec<ConfluenceSpace>,
+    /// Start index for pagination
+    pub start: i32,
+    /// Limit for pagination
+    pub limit: i32,
+    /// Total number of spaces
+    pub size: i32,
 }
 
 /// Client for interacting with the Confluence REST API.
@@ -320,5 +421,42 @@ impl ConfluenceClient {
             }
         }
         Ok(())
+    }
+
+    /// Get all spaces in the Confluence instance.
+    pub fn get_spaces(&self) -> Result<Vec<ConfluenceSpace>> {
+        let url = format!(
+            "{}/wiki/rest/api/space?expand=description.plain&limit=1000",
+            self.config.base_url
+        );
+
+        let response = self.client.get(&url).headers(self.headers.clone()).send()?;
+
+        if !response.status().is_success() {
+            let status = response.status().as_u16();
+            let error_text = response
+                .text()
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(ConfluenceError::ApiError {
+                status,
+                message: format!("Failed to get spaces: HTTP {status}: {error_text}"),
+            });
+        }
+
+        let spaces_response: SpacesResponse = response.json()?;
+        Ok(spaces_response.results)
+    }
+
+    /// Check if Confluence API is accessible.
+    pub fn check_connectivity(&self) -> Result<bool> {
+        let url = format!("{}/wiki/rest/api/space", self.config.base_url);
+
+        let response = self
+            .client
+            .head(&url)
+            .headers(self.headers.clone())
+            .send()?;
+
+        Ok(response.status().is_success())
     }
 }

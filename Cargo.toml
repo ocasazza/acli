@@ -3,6 +3,7 @@ resolver = "2"
 members = [
   "shared",
   "cli",
+  "tui",
 ]
 
 [workspace.package]
@@ -13,10 +14,6 @@ description = "A rust and nix template repository."
 authors = ["Olive Casazza <olive.casazza@schrodinger.com>"]
 documentation = "https://ocasazza.github.io/acli/docs/index.html"
 repository = "https://github.com/ocasazza/acli"
-homepage = "https://ocasazza.github.io/acli/demo/index.html"
+homepage = "https://github.com/ocasazza/acli"
 readme = "readme.md"
-keywords = ["nix", "wasm", "javascript", "typescript"]
-
-[workspace.metadata.crane]
-name = "acli"
-version = "0.0.1"
+keywords = ["nix", "atlassian"]

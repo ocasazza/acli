@@ -1,7 +1,6 @@
+use acli::ctag;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-
-use acli::ctag;
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -59,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Ctag(ref cmd)) => {
             ctag::run(cmd, args.dry_run, args.pretty, args.verbose)?;
         }
-        None => {
+        _ => {
             // todo: throw error command not provided and list --help
         }
     }

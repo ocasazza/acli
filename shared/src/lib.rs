@@ -2,9 +2,11 @@ use serde::{Deserialize, Serialize};
 
 pub mod confluence;
 pub mod errors;
+pub mod models;
 
 pub use confluence::*;
 pub use errors::*;
+pub use models::*;
 
 /// A page with additional metadata information about actions to take.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
