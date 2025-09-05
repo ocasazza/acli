@@ -3,6 +3,7 @@ resolver = "2"
 members = [
   "shared",
   "cli",
+  "tui",
 ]
 
 [workspace.package]

@@ -54,6 +54,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.verbose {
         eprintln!("acli v{}", env!("CARGO_PKG_VERSION"));
     }
+
+    // Check if interactive mode is requested
+    if args.interactive {
+        return acli_tui::run_tui();
+    }
+
     // Dispatch subcommands
     match args.command {
         Some(Commands::Ctag(ref cmd)) => {
