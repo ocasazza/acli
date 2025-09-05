@@ -1,9 +1,9 @@
 //! Terminal setup and cleanup management
 
 use crossterm::{
+    event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    event::{DisableMouseCapture, EnableMouseCapture},
 };
 use ratatui::{
     backend::{Backend, CrosstermBackend},
@@ -26,7 +26,9 @@ impl TerminalManager {
     }
 
     /// Clean up terminal state and restore normal mode
-    pub fn cleanup<B: Backend + std::io::Write>(terminal: &mut Terminal<B>) -> Result<(), Box<dyn Error>> {
+    pub fn cleanup<B: Backend + std::io::Write>(
+        terminal: &mut Terminal<B>,
+    ) -> Result<(), Box<dyn Error>> {
         disable_raw_mode()?;
         execute!(
             terminal.backend_mut(),

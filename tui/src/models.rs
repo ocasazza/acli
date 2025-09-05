@@ -123,7 +123,9 @@ impl NavigationContext {
 
     /// Generate a CQL context prefix for commands
     pub fn cql_context(&self) -> Option<String> {
-        if let (Some(_), Some(product), Some(project)) = (&self.domain, &self.product, &self.project) {
+        if let (Some(_), Some(product), Some(project)) =
+            (&self.domain, &self.product, &self.project)
+        {
             match product.product_type {
                 ProductType::Confluence => Some(format!("space = \"{}\"", project.key)),
                 ProductType::Jira => Some(format!("project = \"{}\"", project.key)),

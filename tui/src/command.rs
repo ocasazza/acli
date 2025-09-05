@@ -96,7 +96,11 @@ impl CommandExecutor {
     pub fn get_available_commands(&self) -> Vec<AvailableCommand> {
         let mut commands = Vec::new();
 
-        if let (Some(_), Some(product), Some(_)) = (&self.context.domain, &self.context.product, &self.context.project) {
+        if let (Some(_), Some(product), Some(_)) = (
+            &self.context.domain,
+            &self.context.product,
+            &self.context.project,
+        ) {
             match product.product_type {
                 ProductType::Confluence => {
                     commands.push(AvailableCommand::Ctag {
@@ -126,7 +130,10 @@ impl CommandExecutor {
     }
 
     /// Execute a command
-    pub fn execute_command(&mut self, command: TuiCommand) -> Result<CommandResult, Box<dyn Error>> {
+    pub fn execute_command(
+        &mut self,
+        command: TuiCommand,
+    ) -> Result<CommandResult, Box<dyn Error>> {
         let cmd_string = self.build_command_string(&command)?;
 
         // Execute the command using the acli binary
@@ -153,7 +160,9 @@ impl CommandExecutor {
     fn build_command_string(&self, command: &TuiCommand) -> Result<String, Box<dyn Error>> {
         match command.name.as_str() {
             "ctag" => {
-                let cql_context = self.context.cql_context()
+                let cql_context = self
+                    .context
+                    .cql_context()
                     .ok_or("No valid context for command execution")?;
 
                 let mut cmd_parts = vec!["ctag".to_string(), command.operation.clone()];

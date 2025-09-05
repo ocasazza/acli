@@ -1,7 +1,7 @@
 //! Search functionality for tree navigation
 
-use sublime_fuzzy::{FuzzySearch, Scoring};
 use crate::ui::Ui;
+use sublime_fuzzy::{FuzzySearch, Scoring};
 
 /// Search manager for fuzzy finding in tree items
 pub struct SearchManager {
@@ -98,7 +98,14 @@ impl SearchManager {
                     // Find character positions in the clean text that match our query
                     let positions = self.find_match_positions(&clean_text, &self.search_query);
 
-                    Some((name.clone(), *depth, *selected, score, positions, original_index))
+                    Some((
+                        name.clone(),
+                        *depth,
+                        *selected,
+                        score,
+                        positions,
+                        original_index,
+                    ))
                 } else {
                     None
                 }
@@ -157,13 +164,19 @@ impl SearchManager {
     }
 
     /// Get the items to display (either filtered or full tree)
-    pub fn get_display_items(&self, tree_items: &[(String, usize, bool)]) -> Vec<(String, usize, bool)> {
+    pub fn get_display_items(
+        &self,
+        tree_items: &[(String, usize, bool)],
+    ) -> Vec<(String, usize, bool)> {
         if let Some(ref filtered) = self.filtered_tree_items {
             // Convert from fuzzy match format to display format
-            filtered.iter()
-                .map(|(name, depth, selected, _score, _positions, _original_index)| {
-                    (name.clone(), *depth, *selected)
-                })
+            filtered
+                .iter()
+                .map(
+                    |(name, depth, selected, _score, _positions, _original_index)| {
+                        (name.clone(), *depth, *selected)
+                    },
+                )
                 .collect()
         } else {
             tree_items.to_vec()
@@ -171,7 +184,9 @@ impl SearchManager {
     }
 
     /// Get fuzzy search results with highlighting information
-    pub fn get_fuzzy_display_items(&self) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>, usize)>> {
+    pub fn get_fuzzy_display_items(
+        &self,
+    ) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>, usize)>> {
         self.filtered_tree_items.as_ref()
     }
 

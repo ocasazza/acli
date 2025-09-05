@@ -47,7 +47,10 @@ impl EventHandler {
 
             // Send tick event if enough time has passed
             if self.last_tick.elapsed() >= self.tick_rate {
-                if tx.send(Event::Key(KeyEvent::from(event::KeyCode::Null))).is_err() {
+                if tx
+                    .send(Event::Key(KeyEvent::from(event::KeyCode::Null)))
+                    .is_err()
+                {
                     break;
                 }
                 self.last_tick = Instant::now();

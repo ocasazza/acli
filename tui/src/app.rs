@@ -1,20 +1,20 @@
 //! Main TUI application state and event handling
 
 use crate::{
-    create_confluence_client, screens::Screen, ui::Ui, models::{AtlassianDomain, NavigationContext},
-    command::{CommandExecutor, CommandInput, AvailableCommand},
-    tree_navigation::TreeNavigationManager,
-    search::SearchManager,
+    command::{AvailableCommand, CommandExecutor, CommandInput},
+    create_confluence_client,
     domain_loader::DomainLoader,
-    terminal_manager::TerminalManager,
     event_handler::EventHandler,
+    models::{AtlassianDomain, NavigationContext},
+    screens::Screen,
+    search::SearchManager,
+    terminal_manager::TerminalManager,
+    tree_navigation::TreeNavigationManager,
+    ui::Ui,
 };
 use crossterm::event::{self, Event};
 use nix_rust_template::ConfluenceClient;
-use ratatui::{
-    backend::Backend,
-    Terminal,
-};
+use ratatui::{backend::Backend, Terminal};
 use std::{error::Error, time::Duration};
 
 /// Main application state
@@ -118,14 +118,16 @@ impl App {
         EventHandler::handle_event(self, event)
     }
 
-
     /// Switch to a different screen
     pub fn switch_screen(&mut self, screen: Screen) {
         self.current_screen = screen;
     }
 
     /// Load domain data from environment variables and discover products/projects
-    fn load_domain_data(&mut self, confluence_client: ConfluenceClient) -> Result<(), Box<dyn Error>> {
+    fn load_domain_data(
+        &mut self,
+        confluence_client: ConfluenceClient,
+    ) -> Result<(), Box<dyn Error>> {
         let domain_loader = DomainLoader::new(confluence_client);
         let domain = domain_loader.load_domain_data()?;
 
@@ -134,7 +136,6 @@ impl App {
 
         Ok(())
     }
-
 
     /// Get available commands for the current context
     pub fn get_available_commands(&self) -> Vec<AvailableCommand> {
@@ -158,7 +159,9 @@ impl App {
     }
 
     /// Get fuzzy search results with highlighting information
-    pub fn get_fuzzy_display_items(&self) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>, usize)>> {
+    pub fn get_fuzzy_display_items(
+        &self,
+    ) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>, usize)>> {
         self.search_manager.get_fuzzy_display_items()
     }
 
@@ -183,7 +186,9 @@ impl App {
     }
 
     /// Get filtered tree items
-    pub fn get_filtered_tree_items(&self) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>, usize)>> {
+    pub fn get_filtered_tree_items(
+        &self,
+    ) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>, usize)>> {
         self.search_manager.filtered_tree_items.as_ref()
     }
 }

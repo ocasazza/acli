@@ -5,7 +5,10 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
+    widgets::{
+        Block, Borders, Clear, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation,
+        ScrollbarState, Wrap,
+    },
     Frame,
 };
 
@@ -56,7 +59,6 @@ impl Ui {
         }
     }
 
-
     /// Draw the footer with status and key hints
     fn draw_footer(&self, f: &mut Frame, area: Rect, screen: &Screen, app: &crate::app::App) {
         let key_hints = match screen {
@@ -68,9 +70,11 @@ impl Ui {
                 } else {
                     "↑↓: Navigate | ←→: Expand/Collapse | /: Search | PgUp/PgDn: Scroll | Enter: Select | c: Commands | q: Quit"
                 }
-            },
+            }
             Screen::CommandExecution => "Enter: Execute | Esc: Back | q: Quit",
-            Screen::MainMenu => "1: CQL Builder | 2: Page Browser | 3: Label Manager | h: Help | q: Quit",
+            Screen::MainMenu => {
+                "1: CQL Builder | 2: Page Browser | 3: Label Manager | h: Help | q: Quit"
+            }
             Screen::CqlBuilder => "Enter: Execute Query | Backspace: Back | q: Quit",
             Screen::PageBrowser => "↑↓: Navigate | Enter: Select | Backspace: Back | q: Quit",
             Screen::LabelManager => "a: Add | d: Delete | u: Update | Backspace: Back | q: Quit",
@@ -82,7 +86,10 @@ impl Ui {
                 Span::styled("Status: ", Style::default().fg(Color::Yellow)),
                 Span::raw(&self.status_message),
             ]),
-            Line::from(vec![Span::styled(key_hints, Style::default().fg(Color::Gray))]),
+            Line::from(vec![Span::styled(
+                key_hints,
+                Style::default().fg(Color::Gray),
+            )]),
         ];
 
         let footer = Paragraph::new(footer_text)
@@ -127,7 +134,11 @@ impl Ui {
 
         // Title
         let title = Paragraph::new("CQL Query Builder")
-            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
             .alignment(Alignment::Center)
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(title, chunks[0]);
@@ -135,27 +146,21 @@ impl Ui {
         // Input area (placeholder)
         let input = Paragraph::new("Type your CQL query here...")
             .style(Style::default().fg(Color::Gray))
-            .block(
-                Block::default()
-                    .title("CQL Query")
-                    .borders(Borders::ALL),
-            );
+            .block(Block::default().title("CQL Query").borders(Borders::ALL));
         f.render_widget(input, chunks[1]);
 
         // Examples
-        let examples = ["Examples:",
+        let examples = [
+            "Examples:",
             "• parent = 123456",
             "• space = 'DOCS' and type = 'page'",
             "• title ~ 'tutorial' and label = 'draft'",
-            "• ancestor = 789012 and lastModified >= '2023-01-01'"];
+            "• ancestor = 789012 and lastModified >= '2023-01-01'",
+        ];
 
         let examples_widget = Paragraph::new(examples.join("\n"))
             .style(Style::default().fg(Color::Yellow))
-            .block(
-                Block::default()
-                    .title("CQL Examples")
-                    .borders(Borders::ALL),
-            )
+            .block(Block::default().title("CQL Examples").borders(Borders::ALL))
             .wrap(Wrap { trim: true });
         f.render_widget(examples_widget, chunks[2]);
     }
@@ -163,7 +168,11 @@ impl Ui {
     /// Draw the page browser screen
     fn draw_page_browser(&self, f: &mut Frame, area: Rect) {
         let title = Paragraph::new("Page Browser")
-            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
             .alignment(Alignment::Center)
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(title, area);
@@ -172,7 +181,11 @@ impl Ui {
     /// Draw the label manager screen
     fn draw_label_manager(&self, f: &mut Frame, area: Rect) {
         let title = Paragraph::new("Label Manager")
-            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
             .alignment(Alignment::Center)
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(title, area);
@@ -237,7 +250,11 @@ impl Ui {
         f.render_widget(Clear, loading_area);
 
         let loading = Paragraph::new("Loading...")
-            .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )
             .alignment(Alignment::Center)
             .block(
                 Block::default()
@@ -281,7 +298,11 @@ impl Ui {
         if app.is_search_mode() {
             let search_text = format!("Search: {}", app.get_search_query());
             let search_input = Paragraph::new(search_text)
-                .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+                .style(
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                )
                 .block(
                     Block::default()
                         .title("🔍 Search Mode")
@@ -309,8 +330,8 @@ impl Ui {
         let tree_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Min(0),        // Tree list
-                Constraint::Length(1),     // Scrollbar
+                Constraint::Min(0),    // Tree list
+                Constraint::Length(1), // Scrollbar
             ])
             .split(chunks[0]);
 
@@ -322,19 +343,26 @@ impl Ui {
             // Use fuzzy search results with highlighting
             fuzzy_items
                 .iter()
-                .enumerate()
-                .map(|(_i, (name, _depth, selected, _score, match_positions, _original_index))| {
-                    // Create highlighted text spans
-                    let highlighted_spans = self.create_highlighted_spans(name, match_positions, app.get_search_query());
+                .map(
+                    |(name, _depth, selected, _score, match_positions, _original_index)| {
+                        // Create highlighted text spans
+                        let highlighted_spans = self.create_highlighted_spans(
+                            name,
+                            match_positions,
+                            app.get_search_query(),
+                        );
 
-                    let base_style = if *selected {
-                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
-                    } else {
-                        Style::default().fg(Color::White)
-                    };
+                        let base_style = if *selected {
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD)
+                        } else {
+                            Style::default().fg(Color::White)
+                        };
 
-                    ListItem::new(Line::from(highlighted_spans)).style(base_style)
-                })
+                        ListItem::new(Line::from(highlighted_spans)).style(base_style)
+                    },
+                )
                 .collect()
         } else {
             // Use regular tree items without highlighting
@@ -343,7 +371,9 @@ impl Ui {
                 .enumerate()
                 .map(|(i, (name, _depth, selected))| {
                     let style = if *selected {
-                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD)
                     } else {
                         Style::default().fg(Color::White)
                     };
@@ -356,7 +386,8 @@ impl Ui {
         let tree_title = if app.get_filtered_tree_items().is_some() {
             format!("🔍 Filtered Results ({} items)", tree_items_data.len())
         } else {
-            app.domain.as_ref()
+            app.domain
+                .as_ref()
                 .map(|d| d.name.clone())
                 .unwrap_or_else(|| "Atlassian Navigation".to_string())
         };
@@ -369,7 +400,11 @@ impl Ui {
                     .style(Style::default().fg(Color::White)),
             )
             .style(Style::default().fg(Color::White))
-            .highlight_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::REVERSED))
+            .highlight_style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::REVERSED),
+            )
             .highlight_symbol("▶ ")
             .start_corner(ratatui::layout::Corner::TopLeft);
 
@@ -393,8 +428,7 @@ impl Ui {
             };
 
             let max_scroll = content_length.saturating_sub(viewport_height);
-            let mut scrollbar_state = ScrollbarState::new(max_scroll)
-                .position(scroll_position);
+            let mut scrollbar_state = ScrollbarState::new(max_scroll).position(scroll_position);
 
             let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .style(Style::default().fg(Color::Gray))
@@ -462,7 +496,11 @@ impl Ui {
         // Context header
         let context_text = format!("Context: {}", app.get_navigation_context().display_path());
         let header = Paragraph::new(context_text)
-            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
             .alignment(Alignment::Center)
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(header, chunks[0]);
@@ -483,13 +521,16 @@ impl Ui {
             .enumerate()
             .map(|(i, cmd)| {
                 let (name, description) = match cmd {
-                    AvailableCommand::Ctag { operation, description } => {
-                        (operation.as_str(), description.as_str())
-                    }
+                    AvailableCommand::Ctag {
+                        operation,
+                        description,
+                    } => (operation.as_str(), description.as_str()),
                 };
 
                 let style = if i == app.command_selection {
-                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(Color::White)
                 };
@@ -515,41 +556,48 @@ impl Ui {
         // Command input/details area
         match app.command_input.mode {
             CommandInputMode::SelectingCommand => {
-                let help_text = ["Select a command:",
+                let help_text = [
+                    "Select a command:",
                     "",
                     "• Use ↑↓ to navigate",
                     "• Press Enter to select",
                     "• Press first letter for quick selection",
-                    "• Press Esc to go back"];
+                    "• Press Esc to go back",
+                ];
 
                 let help_widget = Paragraph::new(help_text.join("\n"))
                     .style(Style::default().fg(Color::Yellow))
-                    .block(
-                        Block::default()
-                            .title("Instructions")
-                            .borders(Borders::ALL),
-                    )
+                    .block(Block::default().title("Instructions").borders(Borders::ALL))
                     .wrap(Wrap { trim: true });
                 f.render_widget(help_widget, cmd_chunks[1]);
             }
             CommandInputMode::TypingArgs => {
-                let cql_context = app.get_navigation_context().cql_context()
+                let cql_context = app
+                    .get_navigation_context()
+                    .cql_context()
                     .unwrap_or_else(|| "No context available".to_string());
 
-                let selected_cmd = if let Some(AvailableCommand::Ctag { operation, .. }) = &app.command_input.selected_command {
+                let selected_cmd = if let Some(AvailableCommand::Ctag { operation, .. }) =
+                    &app.command_input.selected_command
+                {
                     operation.as_str()
                 } else {
                     "unknown"
                 };
 
-                let command_preview = format!("ctag {} \"{}\" {}", selected_cmd, cql_context, app.command_input.text);
+                let command_preview = format!(
+                    "ctag {} \"{}\" {}",
+                    selected_cmd, cql_context, app.command_input.text
+                );
 
-                let input_text = [format!("Command: {selected_cmd}"),
+                let input_text = [
+                    format!("Command: {selected_cmd}"),
                     format!("CQL Context: {cql_context}"),
                     format!("Additional Args: {}", app.command_input.text),
                     "".to_string(),
                     "Full Command:".to_string(),
-                    command_preview];
+                    command_preview,
+                ];
 
                 let input_widget = Paragraph::new(input_text.join("\n"))
                     .style(Style::default().fg(Color::Green))
@@ -562,18 +610,20 @@ impl Ui {
                 f.render_widget(input_widget, cmd_chunks[1]);
             }
             CommandInputMode::Ready => {
-                let ready_text = ["Command ready to execute!",
+                let ready_text = [
+                    "Command ready to execute!",
                     "",
                     "Press Enter to run the command",
-                    "Press Esc to go back"];
+                    "Press Esc to go back",
+                ];
 
                 let ready_widget = Paragraph::new(ready_text.join("\n"))
-                    .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
-                    .block(
-                        Block::default()
-                            .title("Ready")
-                            .borders(Borders::ALL),
+                    .style(
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD),
                     )
+                    .block(Block::default().title("Ready").borders(Borders::ALL))
                     .wrap(Wrap { trim: true });
                 f.render_widget(ready_widget, cmd_chunks[1]);
             }
@@ -630,7 +680,12 @@ impl Ui {
     }
 
     /// Create highlighted text spans for fuzzy search matches
-    fn create_highlighted_spans(&self, text: &str, match_positions: &[usize], query: &str) -> Vec<Span> {
+    fn create_highlighted_spans(
+        &self,
+        text: &str,
+        match_positions: &[usize],
+        query: &str,
+    ) -> Vec<Span> {
         if match_positions.is_empty() {
             return vec![Span::raw(text.to_string())];
         }
@@ -657,7 +712,9 @@ impl Ui {
                 // Add highlighted character with bright color and bold
                 spans.push(Span::styled(
                     chars[pos].to_string(),
-                    Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(Color::Magenta)
+                        .add_modifier(Modifier::BOLD),
                 ));
                 last_pos = pos + 1;
             }

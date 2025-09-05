@@ -1,6 +1,9 @@
 //! Signal handling for graceful application shutdown
 
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use tokio::signal::unix::{signal, SignalKind};
 
 /// Signal handler for managing application shutdown
@@ -19,8 +22,8 @@ impl SignalHandler {
         let quit_flag = Arc::clone(&self.quit_flag);
 
         tokio::spawn(async move {
-            let mut sigint = signal(SignalKind::interrupt())
-                .expect("Failed to create SIGINT signal handler");
+            let mut sigint =
+                signal(SignalKind::interrupt()).expect("Failed to create SIGINT signal handler");
 
             sigint.recv().await;
             quit_flag.store(true, Ordering::Relaxed);

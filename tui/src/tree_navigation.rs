@@ -1,6 +1,6 @@
 //! Tree navigation and management functionality
 
-use crate::models::{AtlassianDomain, ProductType, TreeNode, NavigationContext};
+use crate::models::{AtlassianDomain, NavigationContext, ProductType, TreeNode};
 use std::error::Error;
 
 /// Tree navigation manager
@@ -62,7 +62,12 @@ impl TreeNavigationManager {
     }
 
     /// Recursively flatten tree nodes for display
-    fn flatten_tree_node(&self, node: &TreeNode, depth: usize, items: &mut Vec<(String, usize, bool)>) {
+    fn flatten_tree_node(
+        &self,
+        node: &TreeNode,
+        depth: usize,
+        items: &mut Vec<(String, usize, bool)>,
+    ) {
         let prefix = "  ".repeat(depth);
         let icon = match &node.node_type {
             crate::models::TreeNodeType::Domain(_) => "🌐",
@@ -76,12 +81,16 @@ impl TreeNavigationManager {
                 } else {
                     "⭕"
                 }
-            },
+            }
             crate::models::TreeNodeType::Project(_) => "📁",
         };
 
         let expand_icon = if !node.children.is_empty() {
-            if node.expanded { "▼ " } else { "▶ " }
+            if node.expanded {
+                "▼ "
+            } else {
+                "▶ "
+            }
         } else {
             "  "
         };
@@ -135,7 +144,10 @@ impl TreeNavigationManager {
     }
 
     /// Select the current tree node
-    pub fn select_current_node(&mut self, domain: Option<&AtlassianDomain>) -> Result<(), Box<dyn Error>> {
+    pub fn select_current_node(
+        &mut self,
+        domain: Option<&AtlassianDomain>,
+    ) -> Result<(), Box<dyn Error>> {
         let tree_items = self.get_tree_items();
         if self.tree_selection < tree_items.len() {
             if let Some(node_path) = self.get_node_path_at_index(self.tree_selection) {
@@ -146,7 +158,10 @@ impl TreeNavigationManager {
     }
 
     /// Select the current tree node and automatically select/expand parents
-    pub fn select_current_node_with_parents(&mut self, domain: Option<&AtlassianDomain>) -> Result<(), Box<dyn Error>> {
+    pub fn select_current_node_with_parents(
+        &mut self,
+        domain: Option<&AtlassianDomain>,
+    ) -> Result<(), Box<dyn Error>> {
         let tree_items = self.get_tree_items();
         if self.tree_selection < tree_items.len() {
             if let Some(node_path) = self.get_node_path_at_index(self.tree_selection) {
@@ -185,7 +200,12 @@ impl TreeNavigationManager {
     fn get_node_path_at_index(&self, index: usize) -> Option<Vec<usize>> {
         let mut current_index = 0;
         for (root_index, root_node) in self.tree_data.iter().enumerate() {
-            if let Some(path) = self.find_node_path_recursive(root_node, index, &mut current_index, vec![root_index]) {
+            if let Some(path) = self.find_node_path_recursive(
+                root_node,
+                index,
+                &mut current_index,
+                vec![root_index],
+            ) {
                 return Some(path);
             }
         }
@@ -193,7 +213,13 @@ impl TreeNavigationManager {
     }
 
     /// Recursively find the path to a node at the given index
-    fn find_node_path_recursive(&self, node: &TreeNode, target_index: usize, current_index: &mut usize, path: Vec<usize>) -> Option<Vec<usize>> {
+    fn find_node_path_recursive(
+        &self,
+        node: &TreeNode,
+        target_index: usize,
+        current_index: &mut usize,
+        path: Vec<usize>,
+    ) -> Option<Vec<usize>> {
         if *current_index == target_index {
             return Some(path);
         }
@@ -203,7 +229,9 @@ impl TreeNavigationManager {
             for (child_index, child) in node.children.iter().enumerate() {
                 let mut child_path = path.clone();
                 child_path.push(child_index);
-                if let Some(found_path) = self.find_node_path_recursive(child, target_index, current_index, child_path) {
+                if let Some(found_path) =
+                    self.find_node_path_recursive(child, target_index, current_index, child_path)
+                {
                     return Some(found_path);
                 }
             }
@@ -229,7 +257,11 @@ impl TreeNavigationManager {
     }
 
     /// Update navigation context based on the selected node path
-    fn update_navigation_context(&mut self, path: &[usize], domain: Option<&AtlassianDomain>) -> Result<(), Box<dyn Error>> {
+    fn update_navigation_context(
+        &mut self,
+        path: &[usize],
+        domain: Option<&AtlassianDomain>,
+    ) -> Result<(), Box<dyn Error>> {
         if path.is_empty() {
             return Ok(());
         }
@@ -266,7 +298,11 @@ impl TreeNavigationManager {
     }
 
     /// Update navigation context with automatic parent selection for child nodes
-    fn update_navigation_context_with_parents(&mut self, path: &[usize], domain: Option<&AtlassianDomain>) -> Result<(), Box<dyn Error>> {
+    fn update_navigation_context_with_parents(
+        &mut self,
+        path: &[usize],
+        domain: Option<&AtlassianDomain>,
+    ) -> Result<(), Box<dyn Error>> {
         if path.is_empty() {
             return Ok(());
         }

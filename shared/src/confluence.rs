@@ -8,7 +8,7 @@ use url::Url;
 /// Configuration for connecting to a Confluence instance.
 #[derive(Debug, Clone)]
 pub struct ConfluenceConfig {
-     /// Base URL of the Confluence instance (e.g., "<https://company.atlassian.net>")
+    /// Base URL of the Confluence instance (e.g., "<https://company.atlassian.net>")
     pub base_url: String,
     /// API token for authentication
     pub api_token: String,
@@ -451,7 +451,11 @@ impl ConfluenceClient {
     pub fn check_connectivity(&self) -> Result<bool> {
         let url = format!("{}/wiki/rest/api/space", self.config.base_url);
 
-        let response = self.client.head(&url).headers(self.headers.clone()).send()?;
+        let response = self
+            .client
+            .head(&url)
+            .headers(self.headers.clone())
+            .send()?;
 
         Ok(response.status().is_success())
     }

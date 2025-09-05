@@ -31,27 +31,13 @@ impl Screen {
         key_code: KeyCode,
     ) -> Result<(), Box<dyn Error>> {
         match self {
-            Screen::TreeNavigation => {
-                self.handle_tree_navigation_keys(app, key_code)
-            }
-            Screen::CommandExecution => {
-                self.handle_command_execution_keys(app, key_code)
-            }
-            Screen::MainMenu => {
-                self.handle_main_menu_keys(app, key_code)
-            }
-            Screen::CqlBuilder => {
-                self.handle_cql_builder_keys(app, key_code)
-            }
-            Screen::PageBrowser => {
-                self.handle_page_browser_keys(app, key_code)
-            }
-            Screen::LabelManager => {
-                self.handle_label_manager_keys(app, key_code)
-            }
-            Screen::Help => {
-                self.handle_help_keys(app, key_code)
-            }
+            Screen::TreeNavigation => self.handle_tree_navigation_keys(app, key_code),
+            Screen::CommandExecution => self.handle_command_execution_keys(app, key_code),
+            Screen::MainMenu => self.handle_main_menu_keys(app, key_code),
+            Screen::CqlBuilder => self.handle_cql_builder_keys(app, key_code),
+            Screen::PageBrowser => self.handle_page_browser_keys(app, key_code),
+            Screen::LabelManager => self.handle_label_manager_keys(app, key_code),
+            Screen::Help => self.handle_help_keys(app, key_code),
         }
     }
 
@@ -156,11 +142,7 @@ impl Screen {
     }
 
     /// Handle keys for help screen
-    fn handle_help_keys(
-        &mut self,
-        app: &mut App,
-        key_code: KeyCode,
-    ) -> Result<(), Box<dyn Error>> {
+    fn handle_help_keys(&mut self, app: &mut App, key_code: KeyCode) -> Result<(), Box<dyn Error>> {
         match key_code {
             KeyCode::Backspace | KeyCode::Esc => {
                 app.switch_screen(Screen::MainMenu);

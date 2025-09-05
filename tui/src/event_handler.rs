@@ -2,8 +2,8 @@
 
 use crate::{
     app::App,
+    command::{AvailableCommand, CommandInputMode, TuiCommand},
     screens::Screen,
-    command::{CommandInputMode, AvailableCommand, TuiCommand},
 };
 use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent, MouseEventKind};
 use std::error::Error;
@@ -20,9 +20,13 @@ impl EventHandler {
     /// Handle incoming events
     pub fn handle_event(app: &mut App, event: Event) -> Result<(), Box<dyn Error>> {
         match event {
-            Event::Key(KeyEvent { code, modifiers, .. }) => {
+            Event::Key(KeyEvent {
+                code, modifiers, ..
+            }) => {
                 // Handle Ctrl+C
-                if code == KeyCode::Char('c') && modifiers.contains(crossterm::event::KeyModifiers::CONTROL) {
+                if code == KeyCode::Char('c')
+                    && modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
+                {
                     app.should_quit = true;
                     return Ok(());
                 }
@@ -68,8 +72,10 @@ impl EventHandler {
     fn handle_tree_navigation_input(app: &mut App, code: KeyCode) -> Result<(), Box<dyn Error>> {
         match code {
             KeyCode::Enter => {
-                app.tree_navigation.select_current_node(app.domain.as_ref())?;
-                app.command_executor.update_context(app.tree_navigation.navigation_context.clone());
+                app.tree_navigation
+                    .select_current_node(app.domain.as_ref())?;
+                app.command_executor
+                    .update_context(app.tree_navigation.navigation_context.clone());
             }
             KeyCode::Up => {
                 app.tree_navigation.move_selection_up();
@@ -116,24 +122,31 @@ impl EventHandler {
                 // 1. Map the current selection from filtered items back to the full tree using original index
                 // 2. Select that item properly
                 // 3. Exit search mode
-                if let Some(original_index) = app.search_manager.get_original_index_for_filtered_item(app.tree_navigation.tree_selection) {
+                if let Some(original_index) = app
+                    .search_manager
+                    .get_original_index_for_filtered_item(app.tree_navigation.tree_selection)
+                {
                     // Update tree selection to the correct index in the full tree
                     app.tree_navigation.tree_selection = original_index;
 
                     // Now select the node properly (this handles parent selection automatically)
-                    app.tree_navigation.select_current_node_with_parents(app.domain.as_ref())?;
-                    app.command_executor.update_context(app.tree_navigation.navigation_context.clone());
+                    app.tree_navigation
+                        .select_current_node_with_parents(app.domain.as_ref())?;
+                    app.command_executor
+                        .update_context(app.tree_navigation.navigation_context.clone());
                 }
                 // Completely exit search mode when a selection is made
                 app.search_manager.exit_search_mode(&mut app.ui);
             }
             KeyCode::Backspace => {
                 let tree_items = app.tree_navigation.get_tree_items();
-                app.tree_navigation.tree_selection = app.search_manager.remove_from_query(&tree_items);
+                app.tree_navigation.tree_selection =
+                    app.search_manager.remove_from_query(&tree_items);
             }
             KeyCode::Char(c) => {
                 let tree_items = app.tree_navigation.get_tree_items();
-                app.tree_navigation.tree_selection = app.search_manager.add_to_query(c, &tree_items);
+                app.tree_navigation.tree_selection =
+                    app.search_manager.add_to_query(c, &tree_items);
             }
             KeyCode::Up => {
                 if app.search_manager.filtered_tree_items.is_some() {
@@ -282,9 +295,10 @@ impl EventHandler {
             }
             KeyCode::Up => {
                 if app.command_input.mode == CommandInputMode::SelectingCommand
-                    && app.command_selection > 0 {
-                        app.command_selection -= 1;
-                    }
+                    && app.command_selection > 0
+                {
+                    app.command_selection -= 1;
+                }
             }
             KeyCode::Down => {
                 if app.command_input.mode == CommandInputMode::SelectingCommand {
@@ -319,7 +333,12 @@ impl EventHandler {
                         let available_commands = app.command_executor.get_available_commands();
                         for (i, command) in available_commands.iter().enumerate() {
                             if let AvailableCommand::Ctag { operation, .. } = command {
-                                let first_char = operation.as_str().chars().next().unwrap_or(' ').to_ascii_lowercase();
+                                let first_char = operation
+                                    .as_str()
+                                    .chars()
+                                    .next()
+                                    .unwrap_or(' ')
+                                    .to_ascii_lowercase();
                                 if c.to_ascii_lowercase() == first_char {
                                     app.command_selection = i;
                                     break;
@@ -344,7 +363,8 @@ impl EventHandler {
                 let args: Vec<String> = if app.command_input.text.trim().is_empty() {
                     Vec::new()
                 } else {
-                    app.command_input.text
+                    app.command_input
+                        .text
                         .split_whitespace()
                         .map(|s| s.to_string())
                         .collect()

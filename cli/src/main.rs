@@ -1,6 +1,6 @@
+use acli::ctag;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-use acli::ctag;
 
 #[derive(Parser, Debug)]
 #[clap(
