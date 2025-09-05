@@ -238,8 +238,8 @@ fn create_confluence_client() -> Result<ConfluenceClient, Box<dyn Error>> {
         std::env::var("ATLASSIAN_URL").map_err(|_| "ATLASSIAN_URL environment variable not set")?;
     let username = std::env::var("ATLASSIAN_USERNAME")
         .map_err(|_| "ATLASSIAN_USERNAME environment variable not set")?;
-    let api_token = std::env::var("ATLASSIAN_TOKEN")
-        .map_err(|_| "ATLASSIAN_TOKEN environment variable not set")?;
+    let api_token = std::env::var("ATLASSIAN_API_TOKEN")
+        .map_err(|_| "ATLASSIAN_API_TOKEN environment variable not set")?;
 
     let config = ConfluenceConfig {
         base_url,

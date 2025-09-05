@@ -7,7 +7,9 @@ use std::error::Error;
 /// Enum representing different screens in the TUI
 #[derive(Debug, Clone, PartialEq)]
 pub enum Screen {
-    /// Main menu screen
+    /// Tree navigation screen for selecting domain/product/project
+    TreeNavigation,
+    /// Main menu screen (legacy)
     MainMenu,
     /// CQL query builder screen
     CqlBuilder,
@@ -17,6 +19,8 @@ pub enum Screen {
     LabelManager,
     /// Help screen
     Help,
+    /// Command execution screen for running ctag commands
+    CommandExecution,
 }
 
 impl Screen {
@@ -27,6 +31,12 @@ impl Screen {
         key_code: KeyCode,
     ) -> Result<(), Box<dyn Error>> {
         match self {
+            Screen::TreeNavigation => {
+                self.handle_tree_navigation_keys(app, key_code)
+            }
+            Screen::CommandExecution => {
+                self.handle_command_execution_keys(app, key_code)
+            }
             Screen::MainMenu => {
                 self.handle_main_menu_keys(app, key_code)
             }
@@ -156,6 +166,59 @@ impl Screen {
                 app.switch_screen(Screen::MainMenu);
             }
             _ => {}
+        }
+        Ok(())
+    }
+
+    /// Handle keys for tree navigation screen
+    fn handle_tree_navigation_keys(
+        &mut self,
+        app: &mut App,
+        key_code: KeyCode,
+    ) -> Result<(), Box<dyn Error>> {
+        match key_code {
+            KeyCode::Enter => {
+                // TODO: Select current tree node
+            }
+            KeyCode::Up => {
+                // TODO: Move up in tree
+            }
+            KeyCode::Down => {
+                // TODO: Move down in tree
+            }
+            KeyCode::Right => {
+                // TODO: Expand node or navigate to commands
+            }
+            KeyCode::Left => {
+                // TODO: Collapse node
+            }
+            KeyCode::Char('c') => {
+                // Switch to command execution for ctag
+                if app.navigation_context.is_complete() {
+                    app.switch_screen(Screen::CommandExecution);
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// Handle keys for command execution screen
+    fn handle_command_execution_keys(
+        &mut self,
+        app: &mut App,
+        key_code: KeyCode,
+    ) -> Result<(), Box<dyn Error>> {
+        match key_code {
+            KeyCode::Backspace | KeyCode::Esc => {
+                app.switch_screen(Screen::TreeNavigation);
+            }
+            KeyCode::Enter => {
+                // TODO: Execute ctag command
+            }
+            _ => {
+                // TODO: Handle command input
+            }
         }
         Ok(())
     }
