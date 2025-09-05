@@ -6,27 +6,12 @@ version = 4
 name = "acli"
 version = "0.0.1"
 dependencies = [
- "acli-tui",
  "clap",
  "dotenv",
  "nix_rust_template",
  "serde",
  "serde_json",
  "tokio",
-]
-
-[[package]]
-name = "acli-tui"
-version = "0.0.1"
-dependencies = [
- "crossterm",
- "dotenv",
- "nix_rust_template",
- "ratatui",
- "serde",
- "serde_json",
- "tokio",
- "url",
 ]
 
 [[package]]
@@ -98,6 +83,21 @@ dependencies = [
  "anstyle",
  "once_cell_polyfill",
  "windows-sys 0.60.2",
+]
+
+[[package]]
+name = "atui"
+version = "0.0.1"
+dependencies = [
+ "crossterm",
+ "dotenv",
+ "nix_rust_template",
+ "ratatui",
+ "serde",
+ "serde_json",
+ "sublime_fuzzy",
+ "tokio",
+ "url",
 ]
 
 [[package]]
@@ -1264,6 +1264,12 @@ dependencies = [
  "rustversion",
  "syn",
 ]
+
+[[package]]
+name = "sublime_fuzzy"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa7986063f7c0ab374407e586d7048a3d5aac94f103f751088bf398e07cd5400"
 
 [[package]]
 name = "syn"

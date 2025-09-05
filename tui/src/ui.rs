@@ -61,9 +61,9 @@ impl Ui {
     fn draw_footer(&self, f: &mut Frame, area: Rect, screen: &Screen, app: &crate::app::App) {
         let key_hints = match screen {
             Screen::TreeNavigation => {
-                if app.search_mode {
+                if app.is_search_mode() {
                     "Type to search | Enter: Apply filter | Esc: Exit search | ↑↓: Navigate"
-                } else if app.filtered_tree_items.is_some() {
+                } else if app.get_filtered_tree_items().is_some() {
                     "↑↓: Navigate | /: Search | Esc: Clear filter | Enter: Select | c: Commands | q: Quit"
                 } else {
                     "↑↓: Navigate | ←→: Expand/Collapse | /: Search | PgUp/PgDn: Scroll | Enter: Select | c: Commands | q: Quit"
@@ -262,7 +262,7 @@ impl Ui {
 
     /// Draw the tree navigation screen
     fn draw_tree_navigation(&self, f: &mut Frame, area: Rect, app: &App) {
-        let main_chunks = if app.search_mode {
+        let main_chunks = if app.is_search_mode() {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
@@ -278,8 +278,8 @@ impl Ui {
         };
 
         // Draw search input if in search mode
-        if app.search_mode {
-            let search_text = format!("Search: {}", app.search_query);
+        if app.is_search_mode() {
+            let search_text = format!("Search: {}", app.get_search_query());
             let search_input = Paragraph::new(search_text)
                 .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
                 .block(
@@ -291,7 +291,7 @@ impl Ui {
             f.render_widget(search_input, main_chunks[0]);
         }
 
-        let tree_area = if app.search_mode {
+        let tree_area = if app.is_search_mode() {
             main_chunks[1]
         } else {
             main_chunks[0]
@@ -317,30 +317,43 @@ impl Ui {
         // Get display items (filtered or full tree)
         let tree_items_data = app.get_display_items();
 
-        // Create tree items for display
-        let tree_items: Vec<ListItem> = tree_items_data
-            .iter()
-            .enumerate()
-            .map(|(i, (name, _depth, selected))| {
-                // Highlight search matches when filtering
-                let display_name = if app.filtered_tree_items.is_some() && !app.search_query.is_empty() {
-                    // Simple highlighting - in a real implementation you'd want proper text highlighting
-                    name.clone()
-                } else {
-                    name.clone()
-                };
+        // Create tree items for display with fuzzy highlighting
+        let tree_items: Vec<ListItem> = if let Some(fuzzy_items) = app.get_fuzzy_display_items() {
+            // Use fuzzy search results with highlighting
+            fuzzy_items
+                .iter()
+                .enumerate()
+                .map(|(i, (name, _depth, selected, score, match_positions))| {
+                    // Create highlighted text spans
+                    let highlighted_spans = self.create_highlighted_spans(name, match_positions, app.get_search_query());
 
-                let style = if *selected {
-                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
-                } else {
-                    Style::default().fg(Color::White)
-                };
-                ListItem::new(display_name).style(style)
-            })
-            .collect();
+                    let base_style = if *selected {
+                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(Color::White)
+                    };
+
+                    ListItem::new(Line::from(highlighted_spans)).style(base_style)
+                })
+                .collect()
+        } else {
+            // Use regular tree items without highlighting
+            tree_items_data
+                .iter()
+                .enumerate()
+                .map(|(i, (name, _depth, selected))| {
+                    let style = if *selected {
+                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(Color::White)
+                    };
+                    ListItem::new(name.clone()).style(style)
+                })
+                .collect()
+        };
 
         // Build tree title
-        let tree_title = if app.filtered_tree_items.is_some() {
+        let tree_title = if app.get_filtered_tree_items().is_some() {
             format!("🔍 Filtered Results ({} items)", tree_items_data.len())
         } else {
             app.domain.as_ref()
@@ -362,7 +375,7 @@ impl Ui {
 
         // Create list state and render with proper scrolling
         let mut list_state = ratatui::widgets::ListState::default();
-        list_state.select(Some(app.tree_selection));
+        list_state.select(Some(app.get_tree_selection()));
 
         f.render_stateful_widget(tree, tree_chunks[0], &mut list_state);
 
@@ -373,8 +386,8 @@ impl Ui {
         // Create and render scrollbar if needed
         if content_length > viewport_height {
             // Calculate scroll position from list state
-            let scroll_position = if app.tree_selection >= viewport_height {
-                app.tree_selection.saturating_sub(viewport_height - 1)
+            let scroll_position = if app.get_tree_selection() >= viewport_height {
+                app.get_tree_selection().saturating_sub(viewport_height - 1)
             } else {
                 0
             };
@@ -391,7 +404,7 @@ impl Ui {
         }
 
         // Context panel
-        let display_path = app.navigation_context.display_path();
+        let display_path = app.get_navigation_context().display_path();
         let mut context_lines = vec![
             "Current Selection:".to_string(),
             "".to_string(),
@@ -400,8 +413,8 @@ impl Ui {
         ];
 
         // Add search info if filtering
-        if let Some(ref filtered) = app.filtered_tree_items {
-            context_lines.push(format!("🔍 Search: '{}'", app.search_query));
+        if let Some(filtered) = app.get_filtered_tree_items() {
+            context_lines.push(format!("🔍 Search: '{}'", app.get_search_query()));
             context_lines.push(format!("Found {} matches", filtered.len()));
             context_lines.push("".to_string());
         }
@@ -413,7 +426,7 @@ impl Ui {
             "• Press '/' to search".to_string(),
             "• Use arrow keys to navigate".to_string(),
             "".to_string(),
-            if app.navigation_context.is_complete() {
+            if app.get_navigation_context().is_complete() {
                 "✅ Complete context - Commands available".to_string()
             } else {
                 "⚠️  Select a project to enable commands".to_string()
@@ -447,7 +460,7 @@ impl Ui {
             .split(area);
 
         // Context header
-        let context_text = format!("Context: {}", app.navigation_context.display_path());
+        let context_text = format!("Context: {}", app.get_navigation_context().display_path());
         let header = Paragraph::new(context_text)
             .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
             .alignment(Alignment::Center)
@@ -520,7 +533,7 @@ impl Ui {
                 f.render_widget(help_widget, cmd_chunks[1]);
             }
             CommandInputMode::TypingArgs => {
-                let cql_context = app.navigation_context.cql_context()
+                let cql_context = app.get_navigation_context().cql_context()
                     .unwrap_or_else(|| "No context available".to_string());
 
                 let selected_cmd = if let Some(AvailableCommand::Ctag { operation, .. }) = &app.command_input.selected_command {
@@ -614,6 +627,51 @@ impl Ui {
                 .wrap(Wrap { trim: true });
             f.render_widget(placeholder_widget, chunks[2]);
         }
+    }
+
+    /// Create highlighted text spans for fuzzy search matches
+    fn create_highlighted_spans(&self, text: &str, match_positions: &[usize], query: &str) -> Vec<Span> {
+        if match_positions.is_empty() {
+            return vec![Span::raw(text.to_string())];
+        }
+
+        let mut spans = Vec::new();
+        let chars: Vec<char> = text.chars().collect();
+        let mut last_pos = 0;
+
+        // Sort positions to ensure we process them in order
+        let mut sorted_positions = match_positions.to_vec();
+        sorted_positions.sort_unstable();
+        sorted_positions.dedup();
+
+        for &pos in &sorted_positions {
+            if pos < chars.len() {
+                // Add non-highlighted text before this match
+                if pos > last_pos {
+                    let segment: String = chars[last_pos..pos].iter().collect();
+                    if !segment.is_empty() {
+                        spans.push(Span::styled(segment, Style::default().fg(Color::White)));
+                    }
+                }
+
+                // Add highlighted character with bright color and bold
+                spans.push(Span::styled(
+                    chars[pos].to_string(),
+                    Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)
+                ));
+                last_pos = pos + 1;
+            }
+        }
+
+        // Add remaining non-highlighted text
+        if last_pos < chars.len() {
+            let segment: String = chars[last_pos..].iter().collect();
+            if !segment.is_empty() {
+                spans.push(Span::styled(segment, Style::default().fg(Color::White)));
+            }
+        }
+
+        spans
     }
 }
 

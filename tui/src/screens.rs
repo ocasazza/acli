@@ -194,7 +194,7 @@ impl Screen {
             }
             KeyCode::Char('c') => {
                 // Switch to command execution for ctag
-                if app.navigation_context.is_complete() {
+                if app.get_navigation_context().is_complete() {
                     app.switch_screen(Screen::CommandExecution);
                 }
             }

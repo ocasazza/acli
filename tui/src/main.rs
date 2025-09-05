@@ -1,6 +1,6 @@
 //! TUI binary entry point
 
-use acli_tui::run_tui;
+use atui::run_tui;
 use std::process;
 
 fn main() {

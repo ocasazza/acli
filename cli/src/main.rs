@@ -1,6 +1,5 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-
 use acli::ctag;
 
 #[derive(Parser, Debug)]
@@ -54,18 +53,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.verbose {
         eprintln!("acli v{}", env!("CARGO_PKG_VERSION"));
     }
-
-    // Check if interactive mode is requested
-    if args.interactive {
-        return acli_tui::run_tui();
-    }
-
     // Dispatch subcommands
     match args.command {
         Some(Commands::Ctag(ref cmd)) => {
             ctag::run(cmd, args.dry_run, args.pretty, args.verbose)?;
         }
-        None => {
+        _ => {
             // todo: throw error command not provided and list --help
         }
     }

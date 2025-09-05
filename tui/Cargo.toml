@@ -1,12 +1,12 @@
 [package]
-name = "acli-tui"
+name = "atui"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 description.workspace = true
 
 [[bin]]
-name = "tui"
+name = "atui"
 path = "src/main.rs"
 
 [dependencies]
@@ -18,3 +18,4 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 dotenv = "0.15"
 url = "2.4"
+sublime_fuzzy = "0.7"

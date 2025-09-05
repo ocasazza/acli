@@ -1,20 +1,26 @@
 //! ACLI TUI - Terminal User Interface for Atlassian CLI
 //!
-//! This crate provides an interactive TUI for managing Confluence pages and labels.
+//! This crate provides an interactive TUI for working with Atlassian products.
 
 use nix_rust_template::{ConfluenceClient, ConfluenceConfig};
 use std::error::Error;
 
 pub mod app;
 pub mod command;
+pub mod domain_loader;
 pub mod event;
+pub mod event_handler;
 pub mod models;
 pub mod screens;
+pub mod search;
+pub mod signal_handler;
+pub mod terminal_manager;
+pub mod tree_navigation;
 pub mod ui;
 
 pub use app::App;
 
-/// Main entry point for the TUI application (blocking)
+/// Main entry point for the TUI application
 pub fn run_tui() -> Result<(), Box<dyn Error>> {
     let app = App::new()?;
     app.run()
