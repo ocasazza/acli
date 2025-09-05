@@ -1,6 +1,9 @@
 //! Search functionality for tree navigation
 
-use crate::ui::Ui;
+use crate::{
+    models::{TreeItem, TreeItemWithMetadata},
+    ui::Ui,
+};
 use sublime_fuzzy::{FuzzySearch, Scoring};
 
 /// Search manager for fuzzy finding in tree items
@@ -9,8 +12,8 @@ pub struct SearchManager {
     pub search_mode: bool,
     /// Current search query
     pub search_query: String,
-    /// Filtered tree items (when searching) - (text, depth, selected, score, match_positions, original_index)
-    pub filtered_tree_items: Option<Vec<(String, usize, bool, isize, Vec<usize>, usize)>>,
+    /// Filtered tree items (when searching)
+    pub filtered_tree_items: Option<Vec<TreeItemWithMetadata>>,
 }
 
 impl Default for SearchManager {
@@ -56,13 +59,13 @@ impl SearchManager {
     }
 
     /// Add character to search query and update filter
-    pub fn add_to_query(&mut self, c: char, tree_items: &[(String, usize, bool)]) -> usize {
+    pub fn add_to_query(&mut self, c: char, tree_items: &[TreeItem]) -> usize {
         self.search_query.push(c);
         self.update_search_filter(tree_items)
     }
 
     /// Remove character from search query and update filter
-    pub fn remove_from_query(&mut self, tree_items: &[(String, usize, bool)]) -> usize {
+    pub fn remove_from_query(&mut self, tree_items: &[TreeItem]) -> usize {
         if !self.search_query.is_empty() {
             self.search_query.pop();
             self.update_search_filter(tree_items)
@@ -72,7 +75,7 @@ impl SearchManager {
     }
 
     /// Update search filter using fuzzy matching
-    fn update_search_filter(&mut self, tree_items: &[(String, usize, bool)]) -> usize {
+    fn update_search_filter(&mut self, tree_items: &[TreeItem]) -> usize {
         if self.search_query.is_empty() {
             self.filtered_tree_items = None;
             return 0;
@@ -81,7 +84,7 @@ impl SearchManager {
         // Configure fuzzy matching with fzf-like scoring
         let scoring = Scoring::emphasize_word_starts();
 
-        let mut matches: Vec<(String, usize, bool, isize, Vec<usize>, usize)> = tree_items
+        let mut matches: Vec<TreeItemWithMetadata> = tree_items
             .iter()
             .enumerate()
             .filter_map(|(original_index, (name, depth, selected))| {
@@ -134,7 +137,6 @@ impl SearchManager {
             .replace("📁", "")
             .trim()
             .to_string();
-
         text
     }
 
@@ -164,10 +166,7 @@ impl SearchManager {
     }
 
     /// Get the items to display (either filtered or full tree)
-    pub fn get_display_items(
-        &self,
-        tree_items: &[(String, usize, bool)],
-    ) -> Vec<(String, usize, bool)> {
+    pub fn get_display_items(&self, tree_items: &[TreeItem]) -> Vec<TreeItem> {
         if let Some(ref filtered) = self.filtered_tree_items {
             // Convert from fuzzy match format to display format
             filtered
@@ -184,9 +183,7 @@ impl SearchManager {
     }
 
     /// Get fuzzy search results with highlighting information
-    pub fn get_fuzzy_display_items(
-        &self,
-    ) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>, usize)>> {
+    pub fn get_fuzzy_display_items(&self) -> Option<&Vec<TreeItemWithMetadata>> {
         self.filtered_tree_items.as_ref()
     }
 

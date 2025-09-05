@@ -332,17 +332,16 @@ impl EventHandler {
                         // Quick selection by first letter
                         let available_commands = app.command_executor.get_available_commands();
                         for (i, command) in available_commands.iter().enumerate() {
-                            if let AvailableCommand::Ctag { operation, .. } = command {
-                                let first_char = operation
-                                    .as_str()
-                                    .chars()
-                                    .next()
-                                    .unwrap_or(' ')
-                                    .to_ascii_lowercase();
-                                if c.to_ascii_lowercase() == first_char {
-                                    app.command_selection = i;
-                                    break;
-                                }
+                            let AvailableCommand::Ctag { operation, .. } = command;
+                            let first_char = operation
+                                .as_str()
+                                .chars()
+                                .next()
+                                .unwrap_or(' ')
+                                .to_ascii_lowercase();
+                            if c.to_ascii_lowercase() == first_char {
+                                app.command_selection = i;
+                                break;
                             }
                         }
                     }
@@ -357,39 +356,37 @@ impl EventHandler {
 
     /// Execute the currently selected command
     fn execute_selected_command(app: &mut App) -> Result<(), Box<dyn Error>> {
-        if let Some(selected_command) = &app.command_input.selected_command {
-            if let AvailableCommand::Ctag { operation, .. } = selected_command {
-                // Parse additional arguments from command input
-                let args: Vec<String> = if app.command_input.text.trim().is_empty() {
-                    Vec::new()
-                } else {
-                    app.command_input
-                        .text
-                        .split_whitespace()
-                        .map(|s| s.to_string())
-                        .collect()
-                };
+        if let Some(AvailableCommand::Ctag { operation, .. }) = &app.command_input.selected_command {
+            // Parse additional arguments from command input
+            let args: Vec<String> = if app.command_input.text.trim().is_empty() {
+                Vec::new()
+            } else {
+                app.command_input
+                    .text
+                    .split_whitespace()
+                    .map(|s| s.to_string())
+                    .collect()
+            };
 
-                let command = TuiCommand {
-                    name: "ctag".to_string(),
-                    operation: operation.as_str().to_string(),
-                    args,
-                    dry_run: false,
-                };
+            let command = TuiCommand {
+                name: "ctag".to_string(),
+                operation: operation.as_str().to_string(),
+                args,
+                dry_run: false,
+            };
 
-                // Execute the command
-                match app.command_executor.execute_command(command) {
-                    Ok(result) => {
-                        let status_msg = if result.success {
-                            format!("Command executed successfully: {}", result.command)
-                        } else {
-                            format!("Command failed: {}", result.stderr)
-                        };
-                        app.ui.set_status(status_msg);
-                    }
-                    Err(e) => {
-                        app.ui.set_status(format!("Error executing command: {e}"));
-                    }
+            // Execute the command
+            match app.command_executor.execute_command(command) {
+                Ok(result) => {
+                    let status_msg = if result.success {
+                        format!("Command executed successfully: {}", result.command)
+                    } else {
+                        format!("Command failed: {}", result.stderr)
+                    };
+                    app.ui.set_status(status_msg);
+                }
+                Err(e) => {
+                    app.ui.set_status(format!("Error executing command: {e}"));
                 }
             }
         }

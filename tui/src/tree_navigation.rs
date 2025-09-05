@@ -1,6 +1,6 @@
 //! Tree navigation and management functionality
 
-use crate::models::{AtlassianDomain, NavigationContext, ProductType, TreeNode};
+use crate::models::{AtlassianDomain, NavigationContext, ProductType, TreeItem, TreeNode};
 use std::error::Error;
 
 /// Tree navigation manager
@@ -53,21 +53,16 @@ impl TreeNavigationManager {
     }
 
     /// Get all visible tree items for display (flattened with indentation)
-    pub fn get_tree_items(&self) -> Vec<(String, usize, bool)> {
+    pub fn get_tree_items(&self) -> Vec<TreeItem> {
         let mut items = Vec::new();
         for node in &self.tree_data {
-            self.flatten_tree_node(node, 0, &mut items);
+            Self::flatten_tree_node(node, 0, &mut items);
         }
         items
     }
 
     /// Recursively flatten tree nodes for display
-    fn flatten_tree_node(
-        &self,
-        node: &TreeNode,
-        depth: usize,
-        items: &mut Vec<(String, usize, bool)>,
-    ) {
+    fn flatten_tree_node(node: &TreeNode, depth: usize, items: &mut Vec<TreeItem>) {
         let prefix = "  ".repeat(depth);
         let icon = match &node.node_type {
             crate::models::TreeNodeType::Domain(_) => "🌐",
@@ -100,7 +95,7 @@ impl TreeNavigationManager {
 
         if node.expanded {
             for child in &node.children {
-                self.flatten_tree_node(child, depth + 1, items);
+                Self::flatten_tree_node(child, depth + 1, items);
             }
         }
     }
@@ -200,7 +195,7 @@ impl TreeNavigationManager {
     fn get_node_path_at_index(&self, index: usize) -> Option<Vec<usize>> {
         let mut current_index = 0;
         for (root_index, root_node) in self.tree_data.iter().enumerate() {
-            if let Some(path) = self.find_node_path_recursive(
+            if let Some(path) = Self::find_node_path_recursive(
                 root_node,
                 index,
                 &mut current_index,
@@ -214,7 +209,6 @@ impl TreeNavigationManager {
 
     /// Recursively find the path to a node at the given index
     fn find_node_path_recursive(
-        &self,
         node: &TreeNode,
         target_index: usize,
         current_index: &mut usize,
@@ -230,7 +224,7 @@ impl TreeNavigationManager {
                 let mut child_path = path.clone();
                 child_path.push(child_index);
                 if let Some(found_path) =
-                    self.find_node_path_recursive(child, target_index, current_index, child_path)
+                    Self::find_node_path_recursive(child, target_index, current_index, child_path)
                 {
                     return Some(found_path);
                 }

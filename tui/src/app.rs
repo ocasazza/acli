@@ -5,7 +5,7 @@ use crate::{
     create_confluence_client,
     domain_loader::DomainLoader,
     event_handler::EventHandler,
-    models::{AtlassianDomain, NavigationContext},
+    models::{AtlassianDomain, NavigationContext, TreeItem, TreeItemWithMetadata},
     screens::Screen,
     search::SearchManager,
     terminal_manager::TerminalManager,
@@ -148,20 +148,18 @@ impl App {
     }
 
     /// Get all visible tree items for display (flattened with indentation)
-    pub fn get_tree_items(&self) -> Vec<(String, usize, bool)> {
+    pub fn get_tree_items(&self) -> Vec<TreeItem> {
         self.tree_navigation.get_tree_items()
     }
 
     /// Get the items to display (either filtered or full tree)
-    pub fn get_display_items(&self) -> Vec<(String, usize, bool)> {
+    pub fn get_display_items(&self) -> Vec<TreeItem> {
         let tree_items = self.tree_navigation.get_tree_items();
         self.search_manager.get_display_items(&tree_items)
     }
 
     /// Get fuzzy search results with highlighting information
-    pub fn get_fuzzy_display_items(
-        &self,
-    ) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>, usize)>> {
+    pub fn get_fuzzy_display_items(&self) -> Option<&Vec<TreeItemWithMetadata>> {
         self.search_manager.get_fuzzy_display_items()
     }
 
@@ -186,9 +184,7 @@ impl App {
     }
 
     /// Get filtered tree items
-    pub fn get_filtered_tree_items(
-        &self,
-    ) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>, usize)>> {
+    pub fn get_filtered_tree_items(&self) -> Option<&Vec<TreeItemWithMetadata>> {
         self.search_manager.filtered_tree_items.as_ref()
     }
 }

@@ -1,104 +1,100 @@
-//! Data models for the hierarchical TUI navigation
+//! Data models for the TUI application
 
-use serde::{Deserialize, Serialize};
+// Re-export shared models
+pub use nix_rust_template::{AtlassianDomain, AtlassianProduct, ProductType, Project};
 
-/// Represents an Atlassian domain/environment
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AtlassianDomain {
-    /// Domain name/URL
+/// Tree node for navigation display
+#[derive(Clone, Debug)]
+pub struct TreeNode {
+    /// Display name
     pub name: String,
-    /// Base URL for the domain
-    pub base_url: String,
-    /// Available products in this domain
-    pub products: Vec<AtlassianProduct>,
+    /// Node type and associated data
+    pub node_type: TreeNodeType,
+    /// Whether this node is expanded
+    pub expanded: bool,
+    /// Whether this node is selected
+    pub selected: bool,
+    /// Child nodes
+    pub children: Vec<TreeNode>,
 }
 
-/// Represents an Atlassian product (Confluence, Jira, JSM)
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AtlassianProduct {
-    /// Product type
-    pub product_type: ProductType,
-    /// Product name for display
-    pub name: String,
-    /// Available projects/spaces in this product
-    pub projects: Vec<Project>,
-    /// Whether this product is available/accessible
-    pub available: bool,
+/// Type alias for complex tree item tuple used in search and display
+/// Format: (name, depth, selected, score, match_positions, original_index)
+pub type TreeItemWithMetadata = (String, usize, bool, isize, Vec<usize>, usize);
+
+/// Type alias for simple tree item tuple
+/// Format: (name, depth, selected)
+pub type TreeItem = (String, usize, bool);
+
+/// Types of tree nodes
+#[derive(Clone, Debug)]
+pub enum TreeNodeType {
+    /// Domain node
+    Domain(AtlassianDomain),
+    /// Product node
+    Product(AtlassianProduct),
+    /// Project/Space node
+    Project(Project),
 }
 
-/// Types of Atlassian products
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ProductType {
-    Confluence,
-    Jira,
-    Jsm,
-}
-
-impl ProductType {
-    pub fn display_name(&self) -> &'static str {
-        match self {
-            ProductType::Confluence => "Confluence",
-            ProductType::Jira => "Jira",
-            ProductType::Jsm => "Jira Service Management",
+impl TreeNode {
+    /// Create a new domain node
+    pub fn new_domain(domain: AtlassianDomain) -> Self {
+        Self {
+            name: domain.name.clone(),
+            node_type: TreeNodeType::Domain(domain),
+            expanded: true, // Domains start expanded
+            selected: false,
+            children: Vec::new(),
         }
     }
 
-    pub fn api_path(&self) -> &'static str {
-        match self {
-            ProductType::Confluence => "/wiki/rest/api",
-            ProductType::Jira => "/rest/api/2",
-            ProductType::Jsm => "/rest/servicedeskapi",
+    /// Create a new product node
+    pub fn new_product(product: AtlassianProduct) -> Self {
+        Self {
+            name: product.name.clone(),
+            node_type: TreeNodeType::Product(product),
+            expanded: false,
+            selected: false,
+            children: Vec::new(),
+        }
+    }
+
+    /// Create a new project node
+    pub fn new_project(project: Project) -> Self {
+        Self {
+            name: project.name.clone(),
+            node_type: TreeNodeType::Project(project),
+            expanded: false,
+            selected: false,
+            children: Vec::new(),
         }
     }
 }
 
-/// Represents a project or space within a product
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Project {
-    /// Project/space ID
-    pub id: String,
-    /// Project/space name
-    pub name: String,
-    /// Project/space key
-    pub key: String,
-    /// Project description
-    pub description: Option<String>,
-    /// Project type (for different project contexts)
-    pub project_type: String,
-}
-
-/// Current navigation context in the TUI
-#[derive(Debug, Clone)]
+/// Navigation context for hierarchical selection
+#[derive(Clone, Debug, Default)]
 pub struct NavigationContext {
-    /// Currently selected domain
+    /// Selected domain
     pub domain: Option<AtlassianDomain>,
-    /// Currently selected product
+    /// Selected product
     pub product: Option<AtlassianProduct>,
-    /// Currently selected project/space
+    /// Selected project/space
     pub project: Option<Project>,
 }
 
-impl Default for NavigationContext {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl NavigationContext {
+    /// Create a new empty navigation context
     pub fn new() -> Self {
-        Self {
-            domain: None,
-            product: None,
-            project: None,
-        }
+        Self::default()
     }
 
-    /// Check if we have a complete context (domain + product + project)
+    /// Check if we have a complete context for command execution
     pub fn is_complete(&self) -> bool {
         self.domain.is_some() && self.product.is_some() && self.project.is_some()
     }
 
-    /// Get a display string for the current context
+    /// Display the current navigation path
     pub fn display_path(&self) -> String {
         let mut parts = Vec::new();
 
@@ -121,86 +117,32 @@ impl NavigationContext {
         }
     }
 
-    /// Generate a CQL context prefix for commands
+    /// Get CQL context for command execution
     pub fn cql_context(&self) -> Option<String> {
-        if let (Some(_), Some(product), Some(project)) =
+        if !self.is_complete() {
+            return None;
+        }
+
+        if let (Some(_domain), Some(product), Some(project)) =
             (&self.domain, &self.product, &self.project)
         {
+            // Create CQL context based on product type and project
             match product.product_type {
-                ProductType::Confluence => Some(format!("space = \"{}\"", project.key)),
-                ProductType::Jira => Some(format!("project = \"{}\"", project.key)),
-                ProductType::Jsm => Some(format!("project = \"{}\"", project.key)),
+                ProductType::Confluence => {
+                    // For Confluence, use space key
+                    Some(format!("space = '{}'", project.key))
+                }
+                ProductType::Jira => {
+                    // For Jira, use project key
+                    Some(format!("project = '{}'", project.key))
+                }
+                ProductType::Jsm => {
+                    // For JSM, also use project key but might need different handling
+                    Some(format!("project = '{}'", project.key))
+                }
             }
         } else {
             None
         }
-    }
-}
-
-/// Tree node for navigation display
-#[derive(Debug, Clone)]
-pub struct TreeNode {
-    /// Display name for this node
-    pub name: String,
-    /// Node type for different handling
-    pub node_type: TreeNodeType,
-    /// Whether this node is expanded
-    pub expanded: bool,
-    /// Child nodes
-    pub children: Vec<TreeNode>,
-    /// Whether this node is currently selected
-    pub selected: bool,
-}
-
-/// Types of tree nodes
-#[derive(Debug, Clone, PartialEq)]
-pub enum TreeNodeType {
-    Domain(AtlassianDomain),
-    Product(AtlassianProduct),
-    Project(Project),
-}
-
-impl TreeNode {
-    pub fn new_domain(domain: AtlassianDomain) -> Self {
-        let name = domain.name.clone();
-        Self {
-            name,
-            node_type: TreeNodeType::Domain(domain),
-            expanded: false,
-            children: Vec::new(),
-            selected: false,
-        }
-    }
-
-    pub fn new_product(product: AtlassianProduct) -> Self {
-        let name = product.name.clone();
-        Self {
-            name,
-            node_type: TreeNodeType::Product(product),
-            expanded: false,
-            children: Vec::new(),
-            selected: false,
-        }
-    }
-
-    pub fn new_project(project: Project) -> Self {
-        let name = project.name.clone();
-        Self {
-            name,
-            node_type: TreeNodeType::Project(project),
-            expanded: false,
-            children: Vec::new(),
-            selected: false,
-        }
-    }
-
-    /// Toggle expansion state
-    pub fn toggle_expansion(&mut self) {
-        self.expanded = !self.expanded;
-    }
-
-    /// Set selection state
-    pub fn set_selected(&mut self, selected: bool) {
-        self.selected = selected;
     }
 }

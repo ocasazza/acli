@@ -368,8 +368,7 @@ impl Ui {
             // Use regular tree items without highlighting
             tree_items_data
                 .iter()
-                .enumerate()
-                .map(|(i, (name, _depth, selected))| {
+                .map(|(name, _depth, selected)| {
                     let style = if *selected {
                         Style::default()
                             .fg(Color::Yellow)
@@ -684,7 +683,7 @@ impl Ui {
         &self,
         text: &str,
         match_positions: &[usize],
-        query: &str,
+        _query: &str,
     ) -> Vec<Span> {
         if match_positions.is_empty() {
             return vec![Span::raw(text.to_string())];
