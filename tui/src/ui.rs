@@ -323,7 +323,7 @@ impl Ui {
             fuzzy_items
                 .iter()
                 .enumerate()
-                .map(|(i, (name, _depth, selected, score, match_positions))| {
+                .map(|(_i, (name, _depth, selected, _score, match_positions, _original_index))| {
                     // Create highlighted text spans
                     let highlighted_spans = self.create_highlighted_spans(name, match_positions, app.get_search_query());
 

@@ -145,6 +145,28 @@ impl TreeNavigationManager {
         Ok(())
     }
 
+    /// Select the current tree node and automatically select/expand parents
+    pub fn select_current_node_with_parents(&mut self, domain: Option<&AtlassianDomain>) -> Result<(), Box<dyn Error>> {
+        let tree_items = self.get_tree_items();
+        if self.tree_selection < tree_items.len() {
+            if let Some(node_path) = self.get_node_path_at_index(self.tree_selection) {
+                // If this is a child node (project/space), automatically expand and select the parent product
+                if node_path.len() > 1 {
+                    // Expand the parent product
+                    let parent_path = &node_path[0..1];
+                    self.set_node_expanded(parent_path, true);
+
+                    // Update navigation context to include both parent and child
+                    self.update_navigation_context_with_parents(&node_path, domain)?;
+                } else {
+                    // This is a root node (product), use normal selection
+                    self.update_navigation_context(&node_path, domain)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Expand the current node
     pub fn expand_current_node(&mut self) {
         if let Some(node_path) = self.get_node_path_at_index(self.tree_selection) {
@@ -238,6 +260,48 @@ impl TreeNavigationManager {
 
         // Update selected state in tree
         self.clear_all_selections();
+        self.set_node_selected(path, true);
+
+        Ok(())
+    }
+
+    /// Update navigation context with automatic parent selection for child nodes
+    fn update_navigation_context_with_parents(&mut self, path: &[usize], domain: Option<&AtlassianDomain>) -> Result<(), Box<dyn Error>> {
+        if path.is_empty() {
+            return Ok(());
+        }
+
+        // Set domain from stored domain
+        if let Some(domain) = domain {
+            self.navigation_context.domain = Some(domain.clone());
+        }
+
+        // Get the parent product (root node)
+        let parent_node = &self.tree_data[path[0]];
+        if let crate::models::TreeNodeType::Product(product) = &parent_node.node_type {
+            self.navigation_context.product = Some(product.clone());
+        }
+
+        // Navigate to the child node
+        let mut current_node = parent_node;
+        for &index in &path[1..] {
+            if index < current_node.children.len() {
+                current_node = &current_node.children[index];
+
+                if let crate::models::TreeNodeType::Project(project) = &current_node.node_type {
+                    self.navigation_context.project = Some(project.clone());
+                }
+            }
+        }
+
+        // Update selected state in tree - select both parent and child
+        self.clear_all_selections();
+
+        // Select the parent product
+        let parent_path = &path[0..1];
+        self.set_node_selected(parent_path, true);
+
+        // Select the child project/space
         self.set_node_selected(path, true);
 
         Ok(())

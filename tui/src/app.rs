@@ -158,7 +158,7 @@ impl App {
     }
 
     /// Get fuzzy search results with highlighting information
-    pub fn get_fuzzy_display_items(&self) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>)>> {
+    pub fn get_fuzzy_display_items(&self) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>, usize)>> {
         self.search_manager.get_fuzzy_display_items()
     }
 
@@ -183,7 +183,7 @@ impl App {
     }
 
     /// Get filtered tree items
-    pub fn get_filtered_tree_items(&self) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>)>> {
+    pub fn get_filtered_tree_items(&self) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>, usize)>> {
         self.search_manager.filtered_tree_items.as_ref()
     }
 }

@@ -9,8 +9,8 @@ pub struct SearchManager {
     pub search_mode: bool,
     /// Current search query
     pub search_query: String,
-    /// Filtered tree items (when searching) - (text, depth, selected, score, match_positions)
-    pub filtered_tree_items: Option<Vec<(String, usize, bool, isize, Vec<usize>)>>,
+    /// Filtered tree items (when searching) - (text, depth, selected, score, match_positions, original_index)
+    pub filtered_tree_items: Option<Vec<(String, usize, bool, isize, Vec<usize>, usize)>>,
 }
 
 impl Default for SearchManager {
@@ -81,9 +81,10 @@ impl SearchManager {
         // Configure fuzzy matching with fzf-like scoring
         let scoring = Scoring::emphasize_word_starts();
 
-        let mut matches: Vec<(String, usize, bool, isize, Vec<usize>)> = tree_items
+        let mut matches: Vec<(String, usize, bool, isize, Vec<usize>, usize)> = tree_items
             .iter()
-            .filter_map(|(name, depth, selected)| {
+            .enumerate()
+            .filter_map(|(original_index, (name, depth, selected))| {
                 // Clean text for matching by removing icons and formatting
                 let clean_text = self.extract_clean_text(name);
 
@@ -97,7 +98,7 @@ impl SearchManager {
                     // Find character positions in the clean text that match our query
                     let positions = self.find_match_positions(&clean_text, &self.search_query);
 
-                    Some((name.clone(), *depth, *selected, score, positions))
+                    Some((name.clone(), *depth, *selected, score, positions, original_index))
                 } else {
                     None
                 }
@@ -160,7 +161,7 @@ impl SearchManager {
         if let Some(ref filtered) = self.filtered_tree_items {
             // Convert from fuzzy match format to display format
             filtered.iter()
-                .map(|(name, depth, selected, _score, _positions)| {
+                .map(|(name, depth, selected, _score, _positions, _original_index)| {
                     (name.clone(), *depth, *selected)
                 })
                 .collect()
@@ -170,8 +171,21 @@ impl SearchManager {
     }
 
     /// Get fuzzy search results with highlighting information
-    pub fn get_fuzzy_display_items(&self) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>)>> {
+    pub fn get_fuzzy_display_items(&self) -> Option<&Vec<(String, usize, bool, isize, Vec<usize>, usize)>> {
         self.filtered_tree_items.as_ref()
+    }
+
+    /// Get the original tree index for a filtered result at the given position
+    pub fn get_original_index_for_filtered_item(&self, filtered_index: usize) -> Option<usize> {
+        if let Some(ref filtered) = self.filtered_tree_items {
+            if filtered_index < filtered.len() {
+                Some(filtered[filtered_index].5) // Return the original_index (6th element)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 
     /// Clear search data to prevent memory leaks

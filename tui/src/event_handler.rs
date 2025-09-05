@@ -112,7 +112,20 @@ impl EventHandler {
                 app.tree_navigation.tree_selection = 0;
             }
             KeyCode::Enter => {
-                app.search_manager.exit_search_mode_keep_filter(&mut app.ui);
+                // When pressing Enter in search mode, we need to:
+                // 1. Map the current selection from filtered items back to the full tree using original index
+                // 2. Select that item properly
+                // 3. Exit search mode
+                if let Some(original_index) = app.search_manager.get_original_index_for_filtered_item(app.tree_navigation.tree_selection) {
+                    // Update tree selection to the correct index in the full tree
+                    app.tree_navigation.tree_selection = original_index;
+
+                    // Now select the node properly (this handles parent selection automatically)
+                    app.tree_navigation.select_current_node_with_parents(app.domain.as_ref())?;
+                    app.command_executor.update_context(app.tree_navigation.navigation_context.clone());
+                }
+                // Completely exit search mode when a selection is made
+                app.search_manager.exit_search_mode(&mut app.ui);
             }
             KeyCode::Backspace => {
                 let tree_items = app.tree_navigation.get_tree_items();
