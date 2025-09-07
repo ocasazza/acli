@@ -294,14 +294,23 @@ impl EventHandler {
                 }
             }
             KeyCode::Up => {
-                if app.command_input.mode == CommandInputMode::SelectingCommand
+                if !app.command_output.is_empty() {
+                    // Scroll up in the output
+                    app.command_output_scroll = app.command_output_scroll.saturating_sub(1);
+                } else if app.command_input.mode == CommandInputMode::SelectingCommand
                     && app.command_selection > 0
                 {
                     app.command_selection -= 1;
                 }
             }
             KeyCode::Down => {
-                if app.command_input.mode == CommandInputMode::SelectingCommand {
+                if !app.command_output.is_empty() {
+                    // Scroll down in the output
+                    let max_scroll = app.command_output.len().saturating_sub(1);
+                    if app.command_output_scroll < max_scroll {
+                        app.command_output_scroll += 1;
+                    }
+                } else if app.command_input.mode == CommandInputMode::SelectingCommand {
                     let available_commands = app.command_executor.get_available_commands();
                     if app.command_selection < available_commands.len().saturating_sub(1) {
                         app.command_selection += 1;
@@ -378,15 +387,24 @@ impl EventHandler {
             // Execute the command
             match app.command_executor.execute_command(command) {
                 Ok(result) => {
-                    let status_msg = if result.success {
-                        format!("Command executed successfully: {}", result.command)
+                    let (output, status_msg) = if result.success {
+                        (
+                            result.stdout,
+                            format!("Command executed successfully: {}", result.command),
+                        )
                     } else {
-                        format!("Command failed: {}", result.stderr)
+                        (result.stderr, format!("Command failed: {}", result.command))
                     };
+
+                    app.command_output = output.lines().map(|s| s.to_string()).collect();
+                    app.command_output_scroll = 0;
                     app.ui.set_status(status_msg);
                 }
                 Err(e) => {
-                    app.ui.set_status(format!("Error executing command: {e}"));
+                    let error_msg = format!("Error executing command: {e}");
+                    app.command_output = vec![error_msg.clone()];
+                    app.command_output_scroll = 0;
+                    app.ui.set_status(error_msg);
                 }
             }
         }

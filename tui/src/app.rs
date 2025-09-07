@@ -39,6 +39,10 @@ pub struct App {
     pub command_input: CommandInput,
     /// Current command selection index (for selecting from available commands)
     pub command_selection: usize,
+    /// Command output
+    pub command_output: Vec<String>,
+    /// Command output scroll position
+    pub command_output_scroll: usize,
 }
 
 impl App {
@@ -62,6 +66,8 @@ impl App {
             command_executor,
             command_input: CommandInput::new(),
             command_selection: 0,
+            command_output: Vec::new(),
+            command_output_scroll: 0,
         };
 
         // Load domain data from environment

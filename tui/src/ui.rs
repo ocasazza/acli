@@ -71,7 +71,9 @@ impl Ui {
                     "↑↓: Navigate | ←→: Expand/Collapse | /: Search | PgUp/PgDn: Scroll | Enter: Select | c: Commands | q: Quit"
                 }
             }
-            Screen::CommandExecution => "Enter: Execute | Esc: Back | q: Quit",
+            Screen::CommandExecution => {
+                "↑↓: Scroll Output | Enter: Execute | Esc: Back | q: Quit"
+            }
             Screen::MainMenu => {
                 "1: CQL Builder | 2: Page Browser | 3: Label Manager | h: Help | q: Quit"
             }
@@ -629,51 +631,33 @@ impl Ui {
         }
 
         // Results area
-        if let Some(result) = app.get_last_command_result() {
-            let result_text = if result.success {
-                vec![
-                    format!("✅ Command executed successfully"),
-                    format!("Command: {}", result.command),
-                    format!("Exit Code: {}", result.exit_code),
-                    "".to_string(),
-                    "Output:".to_string(),
-                    result.stdout.clone(),
-                ]
-            } else {
-                vec![
-                    format!("❌ Command failed"),
-                    format!("Command: {}", result.command),
-                    format!("Exit Code: {}", result.exit_code),
-                    "".to_string(),
-                    "Error:".to_string(),
-                    result.stderr.clone(),
-                ]
-            };
+        if !app.command_output.is_empty() {
+            let result_text: Vec<Line> = app
+                .command_output
+                .iter()
+                .map(|line| Line::from(line.clone()))
+                .collect();
 
-            let result_style = if result.success {
-                Style::default().fg(Color::Green)
-            } else {
-                Style::default().fg(Color::Red)
-            };
-
-            let results_widget = Paragraph::new(result_text.join("\n"))
-                .style(result_style)
+            let results_widget = Paragraph::new(result_text)
+                .style(Style::default().fg(Color::White))
                 .block(
                     Block::default()
-                        .title("Command Results")
+                        .title("Command Output (scroll ↑↓)")
                         .borders(Borders::ALL),
                 )
-                .wrap(Wrap { trim: true });
+                .scroll((app.command_output_scroll as u16, 0));
             f.render_widget(results_widget, chunks[2]);
         } else {
-            let placeholder_widget = Paragraph::new("No commands executed yet.\n\nSelect a command above and press Enter to execute it.")
-                .style(Style::default().fg(Color::Gray))
-                .block(
-                    Block::default()
-                        .title("Command Results")
-                        .borders(Borders::ALL),
-                )
-                .wrap(Wrap { trim: true });
+            let placeholder_widget = Paragraph::new(
+                "No command output. Select a command and press Enter to execute.",
+            )
+            .style(Style::default().fg(Color::Gray))
+            .block(
+                Block::default()
+                    .title("Command Output")
+                    .borders(Borders::ALL),
+            )
+            .wrap(Wrap { trim: true });
             f.render_widget(placeholder_widget, chunks[2]);
         }
     }
