@@ -89,7 +89,7 @@
           inherit alib acli;
           # check the docs
           docs = craneLib.cargoDoc (
-            commonArgs
+            nativeArgs
             // {
               inherit cargoArtifacts;
             }
@@ -101,7 +101,7 @@
           # we can block the CI if there are issues here, but not
           # prevent downstream consumers from building our crate by itself.
           clippy = craneLib.cargoClippy (
-            commonArgs
+            nativeArgs
             // {
               inherit cargoArtifacts;
               cargoClippyExtraArgs = "--all-targets -- --deny warnings";

@@ -3,10 +3,12 @@ use serde::{Deserialize, Serialize};
 pub mod confluence;
 pub mod errors;
 pub mod models;
+pub mod ctag;
 
 pub use confluence::*;
 pub use errors::*;
 pub use models::*;
+pub use ctag::*;
 
 /// A page with additional metadata information about actions to take.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]

@@ -42,6 +42,7 @@ impl Ui {
         // Draw main content based on current screen
         match app.current_screen {
             Screen::TreeNavigation => self.draw_tree_navigation(f, chunks[0], app),
+            Screen::PageSelection => self.draw_page_selection(f, chunks[0], app),
             Screen::CommandExecution => self.draw_command_execution(f, chunks[0], app),
             Screen::MainMenu => self.draw_main_menu(f, chunks[0]),
             Screen::CqlBuilder => self.draw_cql_builder(f, chunks[0]),
@@ -70,6 +71,9 @@ impl Ui {
                 } else {
                     "↑↓: Navigate | ←→: Expand/Collapse | /: Search | PgUp/PgDn: Scroll | Enter: Select | c: Commands | q: Quit"
                 }
+            }
+            Screen::PageSelection => {
+                "↑↓: Navigate | ←→: Expand/Collapse | Space: Select | Enter: Continue | c: Clear | Esc: Back | q: Quit"
             }
             Screen::CommandExecution => {
                 "↑↓: Scroll Output | Enter: Execute | Esc: Back | q: Quit"
@@ -423,7 +427,7 @@ impl Ui {
         if content_length > viewport_height {
             // Calculate scroll position from list state
             let scroll_position = if app.get_tree_selection() >= viewport_height {
-                app.get_tree_selection().saturating_sub(viewport_height - 1)
+                app.get_tree_selection().saturating_sub(viewport_height.saturating_sub(1))
             } else {
                 0
             };
@@ -438,47 +442,12 @@ impl Ui {
             f.render_stateful_widget(scrollbar, tree_chunks[1], &mut scrollbar_state);
         }
 
-        // Context panel
-        let display_path = app.get_navigation_context().display_path();
-        let mut context_lines = vec![
-            "Current Selection:".to_string(),
-            "".to_string(),
-            display_path,
-            "".to_string(),
-        ];
-
-        // Add search info if filtering
-        if let Some(filtered) = app.get_filtered_tree_items() {
-            context_lines.push(format!("🔍 Search: '{}'", app.get_search_query()));
-            context_lines.push(format!("Found {} matches", filtered.len()));
-            context_lines.push("".to_string());
+        // Right panel - show space pages tree if a Confluence space is selected, otherwise show context
+        if app.is_confluence_space_selected() {
+            self.draw_space_pages_panel(f, chunks[1], app);
+        } else {
+            self.draw_context_panel(f, chunks[1], app);
         }
-
-        context_lines.extend(vec![
-            "Actions:".to_string(),
-            "• Press Enter to select/expand".to_string(),
-            "• Press 'c' for commands when project selected".to_string(),
-            "• Press '/' to search".to_string(),
-            "• Use arrow keys to navigate".to_string(),
-            "".to_string(),
-            if app.get_navigation_context().is_complete() {
-                "✅ Complete context - Commands available".to_string()
-            } else {
-                "⚠️  Select a project to enable commands".to_string()
-            },
-        ]);
-
-        let context_panel = Paragraph::new(context_lines.join("\n"))
-            .style(Style::default().fg(Color::White))
-            .block(
-                Block::default()
-                    .title("Context")
-                    .borders(Borders::ALL)
-                    .style(Style::default().fg(Color::Cyan)),
-            )
-            .wrap(Wrap { trim: true });
-
-        f.render_widget(context_panel, chunks[1]);
     }
 
     /// Draw the command execution screen
@@ -630,23 +599,133 @@ impl Ui {
             }
         }
 
-        // Results area
-        if !app.command_output.is_empty() {
-            let result_text: Vec<Line> = app
-                .command_output
+        // Results area - use tree display if available, otherwise text output
+        if let Some(ref tree_manager) = app.command_result_tree {
+            // Split the results area to make room for scrollbar
+            let result_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Min(0),    // Results list
+                    Constraint::Length(1), // Scrollbar
+                ])
+                .split(chunks[2]);
+
+            // Get tree items for display
+            let tree_items_data = tree_manager.get_tree_items();
+
+            // Create list items from tree data
+            let result_items: Vec<ListItem> = tree_items_data
                 .iter()
-                .map(|line| Line::from(line.clone()))
+                .map(|(name, _depth, selected)| {
+                    let style = if *selected {
+                        // Highlighted matched pages get bright green with bold
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD)
+                    } else if name.contains("[MATCHED]") {
+                        // Other matched pages get yellow
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(Color::White)
+                    };
+                    ListItem::new(name.clone()).style(style)
+                })
                 .collect();
 
-            let results_widget = Paragraph::new(result_text)
-                .style(Style::default().fg(Color::White))
+            let results_list = List::new(result_items)
                 .block(
                     Block::default()
-                        .title("Command Output (scroll ↑↓)")
-                        .borders(Borders::ALL),
+                        .title("Command Results (Tree View)")
+                        .borders(Borders::ALL)
+                        .style(Style::default().fg(Color::White)),
                 )
-                .scroll((app.command_output_scroll as u16, 0));
-            f.render_widget(results_widget, chunks[2]);
+                .style(Style::default().fg(Color::White))
+                .highlight_style(
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::REVERSED),
+                )
+                .highlight_symbol("▶ ")
+                .start_corner(ratatui::layout::Corner::TopLeft);
+
+            // Create list state and render with proper scrolling
+            let mut list_state = ratatui::widgets::ListState::default();
+            list_state.select(Some(tree_manager.tree_selection));
+
+            f.render_stateful_widget(results_list, result_chunks[0], &mut list_state);
+
+            // Calculate scrollbar parameters
+            let content_length = tree_items_data.len();
+            let viewport_height = result_chunks[0].height.saturating_sub(2) as usize; // Account for borders
+
+            // Create and render scrollbar if needed
+            if content_length > viewport_height {
+                // Calculate scroll position from list state
+                let scroll_position = if tree_manager.tree_selection >= viewport_height {
+                    tree_manager.tree_selection.saturating_sub(viewport_height.saturating_sub(1))
+                } else {
+                    0
+                };
+
+                let max_scroll = content_length.saturating_sub(viewport_height);
+                let mut scrollbar_state = ScrollbarState::new(max_scroll).position(scroll_position);
+
+                let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                    .style(Style::default().fg(Color::Gray))
+                    .thumb_style(Style::default().fg(Color::White));
+
+                f.render_stateful_widget(scrollbar, result_chunks[1], &mut scrollbar_state);
+            }
+        } else if !app.command_output.is_empty() {
+            // Split the results area to make room for scrollbar
+            let result_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Min(0),    // Results list
+                    Constraint::Length(1), // Scrollbar
+                ])
+                .split(chunks[2]);
+
+            // Create list items from command output lines
+            let result_items: Vec<ListItem> = app
+                .command_output
+                .iter()
+                .map(|line| ListItem::new(line.clone()).style(Style::default().fg(Color::White)))
+                .collect();
+
+            let results_list = List::new(result_items)
+                .block(
+                    Block::default()
+                        .title("Command Output")
+                        .borders(Borders::ALL)
+                        .style(Style::default().fg(Color::White)),
+                )
+                .style(Style::default().fg(Color::White))
+                .start_corner(ratatui::layout::Corner::TopLeft);
+
+            // Create list state with current scroll position
+            let mut list_state = ratatui::widgets::ListState::default();
+            list_state.select(Some(app.command_output_scroll));
+
+            f.render_stateful_widget(results_list, result_chunks[0], &mut list_state);
+
+            // Calculate scrollbar parameters
+            let content_length = app.command_output.len();
+            let viewport_height = result_chunks[0].height.saturating_sub(2) as usize; // Account for borders
+
+            // Create and render scrollbar if needed
+            if content_length > viewport_height {
+                let max_scroll = content_length.saturating_sub(viewport_height);
+                let mut scrollbar_state = ScrollbarState::new(max_scroll).position(app.command_output_scroll);
+
+                let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                    .style(Style::default().fg(Color::Gray))
+                    .thumb_style(Style::default().fg(Color::White));
+
+                f.render_stateful_widget(scrollbar, result_chunks[1], &mut scrollbar_state);
+            }
         } else {
             let placeholder_widget = Paragraph::new(
                 "No command output. Select a command and press Enter to execute.",
@@ -712,6 +791,317 @@ impl Ui {
         }
 
         spans
+    }
+
+    /// Draw the page selection screen
+    fn draw_page_selection(&self, f: &mut Frame, area: Rect, app: &App) {
+        let chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(60), // Page tree area
+                Constraint::Percentage(40), // Label buffer panel
+            ])
+            .split(area);
+
+        // Split the tree area to make room for scrollbar
+        let tree_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Min(0),    // Tree list
+                Constraint::Length(1), // Scrollbar
+            ])
+            .split(chunks[0]);
+
+        if app.is_page_tree_loaded() {
+            // Get page tree items for display
+            let tree_items_data = app.get_page_tree_items();
+
+            // Create tree items for display
+            let tree_items: Vec<ListItem> = tree_items_data
+                .iter()
+                .map(|(name, _depth, selected)| {
+                    let style = if *selected {
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(Color::White)
+                    };
+
+                    // Add selection indicator for selected pages
+                    let display_name = if name.contains("🏷️") {
+                        // This is a page with labels, check if it's in our selection
+                        format!("☐ {}", name) // TODO: Add proper selection checking
+                    } else {
+                        name.clone()
+                    };
+
+                    ListItem::new(display_name).style(style)
+                })
+                .collect();
+
+            let tree_title = format!(
+                "Pages in {} ({} total)",
+                app.get_navigation_context().display_path(),
+                tree_items_data.len()
+            );
+
+            let tree = List::new(tree_items)
+                .block(
+                    Block::default()
+                        .title(tree_title)
+                        .borders(Borders::ALL)
+                        .style(Style::default().fg(Color::White)),
+                )
+                .style(Style::default().fg(Color::White))
+                .highlight_style(
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::REVERSED),
+                )
+                .highlight_symbol("▶ ")
+                .start_corner(ratatui::layout::Corner::TopLeft);
+
+            // Create list state and render with proper scrolling
+            let mut list_state = ratatui::widgets::ListState::default();
+            list_state.select(Some(app.get_page_tree_selection()));
+
+            f.render_stateful_widget(tree, tree_chunks[0], &mut list_state);
+
+            // Calculate scrollbar parameters
+            let content_length = tree_items_data.len();
+            let viewport_height = tree_chunks[0].height.saturating_sub(2) as usize; // Account for borders
+
+            // Create and render scrollbar if needed
+            if content_length > viewport_height {
+                // Calculate scroll position from list state
+                let scroll_position = if app.get_page_tree_selection() >= viewport_height {
+                    app.get_page_tree_selection().saturating_sub(viewport_height - 1)
+                } else {
+                    0
+                };
+
+                let max_scroll = content_length.saturating_sub(viewport_height);
+                let mut scrollbar_state = ScrollbarState::new(max_scroll).position(scroll_position);
+
+                let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                    .style(Style::default().fg(Color::Gray))
+                    .thumb_style(Style::default().fg(Color::White));
+
+                f.render_stateful_widget(scrollbar, tree_chunks[1], &mut scrollbar_state);
+            }
+        } else {
+            // Show loading or error state
+            let loading_widget = Paragraph::new("Loading page tree...")
+                .style(Style::default().fg(Color::Yellow))
+                .block(
+                    Block::default()
+                        .title("Page Tree")
+                        .borders(Borders::ALL),
+                )
+                .wrap(Wrap { trim: true });
+            f.render_widget(loading_widget, tree_chunks[0]);
+        }
+
+        // Label buffer panel
+        let label_buffer = app.get_label_buffer();
+        let selected_count = app.get_selected_pages_count();
+
+        let mut buffer_lines = vec![
+            format!("Selected Pages: {}", selected_count),
+            format!("Unique Labels: {}", label_buffer.len()),
+            "".to_string(),
+            "Label Buffer:".to_string(),
+        ];
+
+        if label_buffer.is_empty() {
+            buffer_lines.push("(No labels selected)".to_string());
+            buffer_lines.push("".to_string());
+            buffer_lines.push("Instructions:".to_string());
+            buffer_lines.push("• Navigate with ↑↓".to_string());
+            buffer_lines.push("• Expand/collapse with ←→".to_string());
+            buffer_lines.push("• Select pages with Space".to_string());
+            buffer_lines.push("• Selected page labels will".to_string());
+            buffer_lines.push("  appear in this buffer".to_string());
+        } else {
+            for label in &label_buffer {
+                buffer_lines.push(format!("• {}", label));
+            }
+            buffer_lines.push("".to_string());
+            buffer_lines.push("Actions:".to_string());
+            buffer_lines.push("• Enter: Continue to commands".to_string());
+            buffer_lines.push("• c: Clear buffer".to_string());
+        }
+
+        let buffer_panel = Paragraph::new(buffer_lines.join("\n"))
+            .style(Style::default().fg(Color::White))
+            .block(
+                Block::default()
+                    .title("Label Buffer")
+                    .borders(Borders::ALL)
+                    .style(Style::default().fg(Color::Green)),
+            )
+            .wrap(Wrap { trim: true });
+
+        f.render_widget(buffer_panel, chunks[1]);
+    }
+
+    /// Draw the context panel (original right panel content)
+    fn draw_context_panel(&self, f: &mut Frame, area: Rect, app: &App) {
+        let display_path = app.get_navigation_context().display_path();
+        let mut context_lines = vec![
+            "Current Selection:".to_string(),
+            "".to_string(),
+            display_path,
+            "".to_string(),
+        ];
+
+        // Add search info if filtering
+        if let Some(filtered) = app.get_filtered_tree_items() {
+            context_lines.push(format!("🔍 Search: '{}'", app.get_search_query()));
+            context_lines.push(format!("Found {} matches", filtered.len()));
+            context_lines.push("".to_string());
+        }
+
+        context_lines.extend(vec![
+            "Actions:".to_string(),
+            "• Press Enter to select/expand".to_string(),
+            "• Press 'c' for commands when project selected".to_string(),
+            "• Press '/' to search".to_string(),
+            "• Use arrow keys to navigate".to_string(),
+            "".to_string(),
+            if app.get_navigation_context().is_complete() {
+                "✅ Complete context - Commands available".to_string()
+            } else {
+                "⚠️  Select a project to enable commands".to_string()
+            },
+        ]);
+
+        let context_panel = Paragraph::new(context_lines.join("\n"))
+            .style(Style::default().fg(Color::White))
+            .block(
+                Block::default()
+                    .title("Context")
+                    .borders(Borders::ALL)
+                    .style(Style::default().fg(Color::Cyan)),
+            )
+            .wrap(Wrap { trim: true });
+
+        f.render_widget(context_panel, area);
+    }
+
+    /// Draw the space pages panel when a Confluence space is selected
+    fn draw_space_pages_panel(&self, f: &mut Frame, area: Rect, app: &App) {
+        // Split the area to make room for scrollbar
+        let panel_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Min(0),    // Pages list
+                Constraint::Length(1), // Scrollbar
+            ])
+            .split(area);
+
+        if app.is_space_pages_loading() {
+            // Show loading state
+            let loading_widget = Paragraph::new("Loading space pages...")
+                .style(Style::default().fg(Color::Yellow))
+                .block(
+                    Block::default()
+                        .title("📊 Space Pages")
+                        .borders(Borders::ALL)
+                        .style(Style::default().fg(Color::Green)),
+                )
+                .wrap(Wrap { trim: true });
+            f.render_widget(loading_widget, area);
+            return;
+        }
+
+        if let Some(space_pages) = app.get_space_pages_tree_items() {
+            // Create list items from space pages
+            let page_items: Vec<ListItem> = space_pages
+                .iter()
+                .enumerate()
+                .map(|(i, (name, _depth, selected))| {
+                    let style = if *selected {
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(Color::White)
+                    };
+
+                    // Add some visual indicators for pages
+                    let display_name = if name.contains("📄") {
+                        name.clone()
+                    } else {
+                        format!("📄 {}", name)
+                    };
+
+                    ListItem::new(display_name).style(style)
+                })
+                .collect();
+
+            let space_key = app.get_selected_space_key().unwrap_or_else(|| "Unknown".to_string());
+            let pages_title = format!("📊 {} Pages ({} total)", space_key, page_items.len());
+
+            let pages_list = List::new(page_items)
+                .block(
+                    Block::default()
+                        .title(pages_title)
+                        .borders(Borders::ALL)
+                        .style(Style::default().fg(Color::Green)),
+                )
+                .style(Style::default().fg(Color::White))
+                .highlight_style(
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::REVERSED),
+                )
+                .highlight_symbol("▶ ")
+                .start_corner(ratatui::layout::Corner::TopLeft);
+
+            // Create list state for space pages (could be extended to allow navigation)
+            let mut list_state = ratatui::widgets::ListState::default();
+            // For now, don't select anything in the space pages
+            // list_state.select(Some(0));
+
+            f.render_stateful_widget(pages_list, panel_chunks[0], &mut list_state);
+
+            // Calculate scrollbar parameters
+            let content_length = space_pages.len();
+            let viewport_height = panel_chunks[0].height.saturating_sub(2) as usize; // Account for borders
+
+            // Create and render scrollbar if needed
+            if content_length > viewport_height {
+                let max_scroll = content_length.saturating_sub(viewport_height);
+                let mut scrollbar_state = ScrollbarState::new(max_scroll).position(0);
+
+                let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                    .style(Style::default().fg(Color::Gray))
+                    .thumb_style(Style::default().fg(Color::White));
+
+                f.render_stateful_widget(scrollbar, panel_chunks[1], &mut scrollbar_state);
+            }
+        } else {
+            // No space pages loaded yet
+            let empty_widget = Paragraph::new(vec![
+                "📊 Confluence Space Selected",
+                "",
+                "Space pages will appear here",
+                "when fully loaded.",
+                "",
+                "Loading may take a moment...",
+            ].join("\n"))
+                .style(Style::default().fg(Color::Yellow))
+                .block(
+                    Block::default()
+                        .title("📊 Space Pages")
+                        .borders(Borders::ALL)
+                        .style(Style::default().fg(Color::Green)),
+                )
+                .wrap(Wrap { trim: true });
+            f.render_widget(empty_widget, area);
+        }
     }
 }
 

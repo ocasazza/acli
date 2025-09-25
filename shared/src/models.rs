@@ -48,4 +48,6 @@ pub struct Project {
     pub description: Option<String>,
     /// Project type (e.g., "space", "project")
     pub project_type: String,
+    /// Homepage ID for Confluence spaces (used as ancestor for page queries)
+    pub homepage_id: Option<String>,
 }

@@ -5,6 +5,8 @@ members = [
   "cli",
   "tui",
 ]
+workspace.metadata.crane.name = "acli"
+
 
 [workspace.package]
 version = "0.0.1"

@@ -31,33 +31,9 @@ impl EventHandler {
                     return Ok(());
                 }
 
-                match app.current_screen {
-                    Screen::TreeNavigation => {
-                        if app.is_search_mode() {
-                            Self::handle_search_input(app, code)?;
-                        } else {
-                            Self::handle_tree_navigation_input(app, code)?;
-                        }
-                    }
-                    Screen::CommandExecution => {
-                        Self::handle_command_execution_input(app, code)?;
-                    }
-                    Screen::MainMenu => {
-                        Self::handle_main_menu_input(app, code);
-                    }
-                    Screen::CqlBuilder => {
-                        Self::handle_cql_builder_input(app, code);
-                    }
-                    Screen::PageBrowser => {
-                        Self::handle_page_browser_input(app, code);
-                    }
-                    Screen::LabelManager => {
-                        Self::handle_label_manager_input(app, code);
-                    }
-                    Screen::Help => {
-                        Self::handle_help_input(app, code);
-                    }
-                }
+                // Extract current screen to avoid borrowing conflicts
+                let mut current_screen = app.current_screen.clone();
+                current_screen.handle_key_event(app, code)?;
             }
             Event::Mouse(MouseEvent { kind, .. }) => {
                 Self::handle_mouse_event(app, kind)?;
@@ -76,6 +52,9 @@ impl EventHandler {
                     .select_current_node(app.domain.as_ref())?;
                 app.command_executor
                     .update_context(app.tree_navigation.navigation_context.clone());
+
+                // Check if we need to load space pages
+                app.handle_space_navigation_change()?;
             }
             KeyCode::Up => {
                 app.tree_navigation.move_selection_up();
@@ -134,6 +113,9 @@ impl EventHandler {
                         .select_current_node_with_parents(app.domain.as_ref())?;
                     app.command_executor
                         .update_context(app.tree_navigation.navigation_context.clone());
+
+                    // Check if we need to load space pages
+                    app.handle_space_navigation_change()?;
                 }
                 // Completely exit search mode when a selection is made
                 app.search_manager.exit_search_mode(&mut app.ui);
@@ -294,7 +276,10 @@ impl EventHandler {
                 }
             }
             KeyCode::Up => {
-                if !app.command_output.is_empty() {
+                if let Some(ref mut tree_manager) = app.command_result_tree {
+                    // Navigate up in tree results
+                    tree_manager.move_selection_up();
+                } else if !app.command_output.is_empty() {
                     // Scroll up in the output
                     app.command_output_scroll = app.command_output_scroll.saturating_sub(1);
                 } else if app.command_input.mode == CommandInputMode::SelectingCommand
@@ -304,9 +289,14 @@ impl EventHandler {
                 }
             }
             KeyCode::Down => {
-                if !app.command_output.is_empty() {
-                    // Scroll down in the output
-                    let max_scroll = app.command_output.len().saturating_sub(1);
+                if let Some(ref mut tree_manager) = app.command_result_tree {
+                    // Navigate down in tree results
+                    tree_manager.move_selection_down();
+                } else if !app.command_output.is_empty() {
+                    // Calculate proper scroll bounds based on visible area
+                    // Assuming command output area height is about 6 lines (8 - 2 for borders)
+                    let visible_lines = 6;
+                    let max_scroll = app.command_output.len().saturating_sub(visible_lines);
                     if app.command_output_scroll < max_scroll {
                         app.command_output_scroll += 1;
                     }
@@ -318,12 +308,18 @@ impl EventHandler {
                 }
             }
             KeyCode::Left => {
-                if matches!(app.command_input.mode, CommandInputMode::TypingArgs) {
+                if let Some(ref mut tree_manager) = app.command_result_tree {
+                    // Collapse current node in tree results
+                    tree_manager.collapse_current_node();
+                } else if matches!(app.command_input.mode, CommandInputMode::TypingArgs) {
                     app.command_input.move_cursor_left();
                 }
             }
             KeyCode::Right => {
-                if matches!(app.command_input.mode, CommandInputMode::TypingArgs) {
+                if let Some(ref mut tree_manager) = app.command_result_tree {
+                    // Expand current node in tree results
+                    tree_manager.expand_current_node();
+                } else if matches!(app.command_input.mode, CommandInputMode::TypingArgs) {
                     app.command_input.move_cursor_right();
                 }
             }
@@ -384,9 +380,9 @@ impl EventHandler {
                 dry_run: false,
             };
 
-            // Execute the command
-            match app.command_executor.execute_command(command) {
-                Ok(result) => {
+            // Execute the command with tree structure
+            match app.command_executor.execute_command_with_tree(command) {
+                Ok((result, tree_manager)) => {
                     let (output, status_msg) = if result.success {
                         (
                             result.stdout,
@@ -398,12 +394,14 @@ impl EventHandler {
 
                     app.command_output = output.lines().map(|s| s.to_string()).collect();
                     app.command_output_scroll = 0;
+                    app.command_result_tree = tree_manager;
                     app.ui.set_status(status_msg);
                 }
                 Err(e) => {
                     let error_msg = format!("Error executing command: {e}");
                     app.command_output = vec![error_msg.clone()];
                     app.command_output_scroll = 0;
+                    app.command_result_tree = None;
                     app.ui.set_status(error_msg);
                 }
             }

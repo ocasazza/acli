@@ -123,6 +123,8 @@ pub struct ConfluenceSpace {
     /// Space links
     #[serde(rename = "_links")]
     pub links: Option<SpaceLinks>,
+    /// Space homepage (the main page of the space)
+    pub homepage: Option<ConfluencePage>,
 }
 
 /// Custom deserializer to handle both integer and string IDs
@@ -246,7 +248,7 @@ impl ConfluenceClient {
     /// Execute a CQL query and return matching pages.
     pub fn query_pages_by_cql(&self, cql: &str) -> Result<Vec<ConfluencePage>> {
         let url = format!(
-            "{}/wiki/rest/api/content/search?cql={}&expand=metadata.labels,ancestors",
+            "{}/wiki/rest/api/content/search?cql={}&expand=metadata.labels,ancestors&limit=1000",
             self.config.base_url,
             urlencoding::encode(cql)
         );
@@ -426,7 +428,7 @@ impl ConfluenceClient {
     /// Get all spaces in the Confluence instance.
     pub fn get_spaces(&self) -> Result<Vec<ConfluenceSpace>> {
         let url = format!(
-            "{}/wiki/rest/api/space?expand=description.plain&limit=1000",
+            "{}/wiki/rest/api/space?expand=description.plain,homepage&limit=1000",
             self.config.base_url
         );
 
