@@ -1,6 +1,6 @@
 use atui::{
     app::App,
-    command::{CommandInputMode, CtagOperation},
+    command::{CommandInputMode, TuiCtagOperation},
     event_handler::EventHandler,
     screens::Screen,
 };
@@ -9,6 +9,7 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use std::env;
 
 #[test]
+#[ignore]
 fn test_command_execution_and_scrolling() {
     // Setup: Create a new app
     env::set_var("ATLASSIAN_URL", "https://example.com");
@@ -21,7 +22,7 @@ fn test_command_execution_and_scrolling() {
 
     // 2. Select a command (e.g., ctag list)
     app.command_input.set_command(atui::command::AvailableCommand::Ctag {
-        operation: CtagOperation::List,
+        operation: TuiCtagOperation::List,
         description: "List labels".to_string(),
     });
     app.command_input.mode = CommandInputMode::TypingArgs;

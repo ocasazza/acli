@@ -4,6 +4,25 @@ use crate::{ConfluenceClient, ConfluenceConfig, ConfluencePage};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 
+
+/// Actions that can be executed against page labels.
+///
+/// Each variant holds the data required to perform that operation. The enum is
+/// serialized with an externally tagged representation like:
+/// { "action": "add", "tag": "example" }
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[serde(tag = "action", rename_all = "lowercase")]
+pub enum PageLabelAction {
+    /// Add a label to the page.
+    Add { tag: String },
+    /// Update an existing label (named `from`) to a new label (`to`).
+    Update { from: String, to: String },
+    /// Remove a label from the page.
+    Delete { tag: String },
+    /// List labels (no additional data).
+    List,
+}
+
 /// Structured result from ctag operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CtagResult {
