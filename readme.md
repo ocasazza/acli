@@ -2,16 +2,8 @@
 
 [![Documentation](https://docs.rs/acli/badge.svg)](https://ocasazza.github.io/acli/docs/index.html)
 
-Atlassian CLI tool with subcommands for different services.
+Atlassian CLI and TUI tools for engineers and administrators.
 
-## Structure
-
-```
-acli <subcommand> [options]
-```
-
-Available subcommands:
-- `ctag` - Confluence page label management
 
 ## Environment Setup
 
@@ -38,4 +30,14 @@ ATLASSIAN_API_TOKEN="your-api-token"
 
 ## Usage
 
-See `acli <subcommand> --help` for command documentation. See [rustdocs](https://ocasazza.github.io/acli/docs/index.html) for full documentation.
+```
+cargo run --bin acli --help
+```
+
+or try the TUI
+
+```
+cargo run --bin atui
+```
+
+See [rustdocs](https://ocasazza.github.io/acli/docs/index.html) for full documentation.

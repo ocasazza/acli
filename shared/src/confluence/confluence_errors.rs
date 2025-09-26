@@ -1,9 +1,52 @@
-use crate::errors::{ConfluenceError, Result};
+use crate::confluence::ctag::PageLabelAction;
 use base64::Engine;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use url::Url;
+
+/// Errors that can occur when interacting with the Confluence API.
+#[derive(Error, Debug)]
+pub enum ConfluenceError {
+    /// HTTP request failed
+    #[error("HTTP request failed: {0}")]
+    Http(#[from] reqwest::Error),
+
+    /// JSON serialization/deserialization failed
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
+
+    /// Authentication failed
+    #[error("Authentication failed: {message}")]
+    Authentication { message: String },
+
+    /// Page not found
+    #[error("Page not found: {page_id}")]
+    PageNotFound { page_id: String },
+
+    /// Label operation failed
+    #[error("Label operation failed: {message}")]
+    LabelOperation { message: String },
+
+    /// CQL query error
+    #[error("CQL query failed: {query} - {message}")]
+    CqlQuery { query: String, message: String },
+
+    /// API returned an error response
+    #[error("API error {status}: {message}")]
+    ApiError { status: u16, message: String },
+
+    /// Invalid URL provided
+    #[error("Invalid URL: {0}")]
+    InvalidUrl(#[from] url::ParseError),
+
+    /// Configuration error
+    #[error("Configuration error: {message}")]
+    Config { message: String },
+}
+
+pub type Result<T> = std::result::Result<T, ConfluenceError>;
 
 /// Configuration for connecting to a Confluence instance.
 #[derive(Debug, Clone)]
@@ -123,6 +166,94 @@ pub struct ConfluenceSpace {
     /// Space links
     #[serde(rename = "_links")]
     pub links: Option<SpaceLinks>,
+    /// Space homepage (the main page of the space)
+    pub homepage: Option<ConfluencePage>,
+}
+
+
+
+/// A page with additional metadata information about actions to take.
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub struct ConfluencePageTree {
+    /// The root page URL
+    pub root_page: String,
+
+    /// The current labels on the page.
+    pub current_page_labels: Vec<String>,
+
+    /// The label actions that should take place.
+    pub tag_actions: Vec<PageLabelAction>,
+}
+
+impl ConfluencePageTree {
+    /// Convenience constructor.
+    pub fn new(root_page: impl Into<String>) -> Self {
+        ConfluencePageTree {
+            root_page: root_page.into(),
+            current_page_labels: Vec::new(),
+            tag_actions: Vec::new(),
+        }
+    }
+
+    /// Return a copy of the current labels known for the page.
+    ///
+    /// Stubbed implementation: returns the in-memory labels vector.
+    pub fn list_labels(&self) -> Vec<String> {
+        self.current_page_labels.clone()
+    }
+
+    /// Stubbed: add a label locally and record the intended action.
+    ///
+    /// In a full implementation this would call the Confluence API.
+    pub fn add_label(&mut self, tag: impl Into<String>) {
+        let tag_s = tag.into();
+        self.current_page_labels.push(tag_s.clone());
+        self.tag_actions.push(PageLabelAction::Add { tag: tag_s });
+    }
+
+    /// Stubbed: update a label locally (replace occurrences) and record the action.
+    ///
+    /// In a full implementation this would call the Confluence API to rename the label.
+    pub fn update_label(&mut self, from: &str, to: &str) {
+        for lbl in &mut self.current_page_labels {
+            if lbl == from {
+                *lbl = to.to_string();
+            }
+        }
+        self.tag_actions.push(PageLabelAction::Update {
+            from: from.to_string(),
+            to: to.to_string(),
+        });
+    }
+
+    /// Stubbed: remove a label locally and record the action.
+    ///
+    /// In a full implementation this would call the Confluence API.
+    pub fn delete_label(&mut self, tag: &str) {
+        self.current_page_labels.retain(|lbl| lbl.as_str() != tag);
+        self.tag_actions.push(PageLabelAction::Delete {
+            tag: tag.to_string(),
+        });
+    }
+
+    /// Stubbed: apply all recorded actions.
+    ///
+    /// This is a no-op placeholder that demonstrates the API surface for the
+    /// shared library. If `dry_run` is true, the function will not perform
+    /// destructive operations (still a no-op here) and will return Ok.
+    pub fn apply_actions(
+        &self,
+        dry_run: bool,
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        if dry_run {
+            // In a real implementation, we'd log what we'd do.
+            // Keep as a no-op for stubbing purposes.
+            return Ok(());
+        }
+
+        // Placeholder: pretend we applied actions successfully.
+        Ok(())
+    }
 }
 
 /// Custom deserializer to handle both integer and string IDs
@@ -246,7 +377,7 @@ impl ConfluenceClient {
     /// Execute a CQL query and return matching pages.
     pub fn query_pages_by_cql(&self, cql: &str) -> Result<Vec<ConfluencePage>> {
         let url = format!(
-            "{}/wiki/rest/api/content/search?cql={}&expand=metadata.labels,ancestors",
+            "{}/wiki/rest/api/content/search?cql={}&expand=metadata.labels,ancestors&limit=1000",
             self.config.base_url,
             urlencoding::encode(cql)
         );
@@ -426,7 +557,7 @@ impl ConfluenceClient {
     /// Get all spaces in the Confluence instance.
     pub fn get_spaces(&self) -> Result<Vec<ConfluenceSpace>> {
         let url = format!(
-            "{}/wiki/rest/api/space?expand=description.plain&limit=1000",
+            "{}/wiki/rest/api/space?expand=description.plain,homepage&limit=1000",
             self.config.base_url
         );
 

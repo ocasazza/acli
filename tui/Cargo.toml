@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 nix_rust_template = { path = "../shared" }
+acli = { path = "../cli" }
 tokio = { version = "1.0", features = ["full"] }
 ratatui = "0.24"
 crossterm = "0.27"

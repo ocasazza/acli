@@ -72,6 +72,7 @@ impl DomainLoader {
                         key: space.key,
                         description: space.description.and_then(|d| d.plain).map(|p| p.value),
                         project_type: "space".to_string(),
+                        homepage_id: space.homepage.map(|homepage| homepage.id),
                     })
                     .collect();
 
