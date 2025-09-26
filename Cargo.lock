@@ -88,6 +88,7 @@ dependencies = [
 name = "atui"
 version = "0.0.1"
 dependencies = [
+ "acli",
  "crossterm",
  "dotenv",
  "nix_rust_template",
@@ -814,6 +815,7 @@ name = "nix_rust_template"
 version = "0.0.1"
 dependencies = [
  "base64",
+ "dotenv",
  "reqwest",
  "serde",
  "serde_json",

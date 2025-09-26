@@ -78,6 +78,7 @@ impl TreeNavigationManager {
                 }
             }
             crate::models::TreeNodeType::Project(_) => "📁",
+            crate::models::TreeNodeType::Page { .. } => "📄",
         };
 
         let expand_icon = if !node.children.is_empty() {
@@ -192,7 +193,7 @@ impl TreeNavigationManager {
     }
 
     /// Get the path to a node at the given flattened index
-    fn get_node_path_at_index(&self, index: usize) -> Option<Vec<usize>> {
+    pub fn get_node_path_at_index(&self, index: usize) -> Option<Vec<usize>> {
         let mut current_index = 0;
         for (root_index, root_node) in self.tree_data.iter().enumerate() {
             if let Some(path) = Self::find_node_path_recursive(
@@ -373,5 +374,45 @@ impl TreeNavigationManager {
     pub fn cleanup(&mut self) {
         self.tree_data.clear();
         self.tree_selection = 0;
+    }
+
+    /// Build space pages tree from CtagResult
+    pub fn build_space_pages_tree(&mut self, result: nix_rust_template::CtagResult) {
+        use crate::models::TreeNode;
+
+        // Convert CtagPageResult to TreeNode with depth limit to prevent infinite recursion
+        let tree_nodes: Vec<TreeNode> = result.pages.iter().map(|page| {
+            self.build_page_tree_with_depth_limit(page, 0, 10) // Limit depth to 10 levels
+        }).collect();
+
+        self.tree_data = tree_nodes;
+    }
+
+    /// Build page tree with depth limit to prevent infinite recursion
+    fn build_page_tree_with_depth_limit(
+        &self,
+        page: &nix_rust_template::CtagPageResult,
+        current_depth: usize,
+        max_depth: usize
+    ) -> TreeNode {
+        use crate::models::TreeNode;
+
+        let mut node = TreeNode::new_page(
+            page.id.clone(),
+            page.title.clone(),
+            page.labels.clone(),
+            !page.children.is_empty(),
+        );
+
+        // Only build children if we haven't exceeded max depth and there are children
+        if current_depth < max_depth && !page.children.is_empty() {
+            node.children = page.children.iter().map(|child| {
+                self.build_page_tree_with_depth_limit(child, current_depth + 1, max_depth)
+            }).collect();
+            node.children_loaded = true;
+            node.expanded = true; // Auto-expand tree nodes for better visibility
+        }
+
+        node
     }
 }

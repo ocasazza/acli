@@ -16,6 +16,12 @@ pub struct TreeNode {
     pub selected: bool,
     /// Child nodes
     pub children: Vec<TreeNode>,
+    /// Whether children have been loaded (for lazy loading)
+    pub children_loaded: bool,
+    /// Whether this node has children (hint for UI)
+    pub has_children: bool,
+    /// Whether this node is currently loading children
+    pub loading_children: bool,
 }
 
 /// Type alias for complex tree item tuple used in search and display
@@ -35,6 +41,8 @@ pub enum TreeNodeType {
     Product(AtlassianProduct),
     /// Project/Space node
     Project(Project),
+    /// Page node (for Confluence pages)
+    Page { id: String, labels: Vec<String> },
 }
 
 impl TreeNode {
@@ -46,6 +54,9 @@ impl TreeNode {
             expanded: true, // Domains start expanded
             selected: false,
             children: Vec::new(),
+            children_loaded: true, // Domain children are pre-loaded
+            has_children: true,
+            loading_children: false,
         }
     }
 
@@ -57,6 +68,9 @@ impl TreeNode {
             expanded: false,
             selected: false,
             children: Vec::new(),
+            children_loaded: true, // Product children are pre-loaded
+            has_children: true,
+            loading_children: false,
         }
     }
 
@@ -68,6 +82,23 @@ impl TreeNode {
             expanded: false,
             selected: false,
             children: Vec::new(),
+            children_loaded: true, // Project children are pre-loaded
+            has_children: true,
+            loading_children: false,
+        }
+    }
+
+    /// Create a new page node (for lazy loading page trees)
+    pub fn new_page(id: String, title: String, labels: Vec<String>, has_children: bool) -> Self {
+        Self {
+            name: title,
+            node_type: TreeNodeType::Page { id, labels },
+            expanded: false,
+            selected: false,
+            children: Vec::new(),
+            children_loaded: !has_children, // If has children, they need to be loaded
+            has_children,
+            loading_children: false,
         }
     }
 }
